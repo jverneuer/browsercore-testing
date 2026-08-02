@@ -39,12 +39,13 @@ interoperability:
 In short:
 
 - **Golden packet testing** — load `.bin` captures recorded from real browsers
-  (Chrome 140, Firefox 135, Safari 18, Edge 140) and compare our generated TLS
-  ClientHellos, HTTP/2 SETTINGS/HEADERS frames, etc. against them.
+  (Chrome 140 (tls, http2), Firefox 128 (tls)) and compare our generated TLS
+  ClientHellos, HTTP/2 SETTINGS/HEADERS frames, etc. against them. Safari 18,
+  Edge 140, and Firefox 135 captures are not yet collected.
 - **RFC compliance** — run focused test suites for TLS 1.3 (RFC 8446), HTTP/2
-  (RFC 9113), HTTP/1.1 (RFC 9110).
+  (RFC 9113), HTTP/1.1 (RFC 9110). These are currently stubs that throw.
 - **Benchmarking** — measure handshake latency and request throughput at
-  p50/p95/p99.
+  p50/p95/p99. These are currently stubs that throw.
 
 ## Public API
 
@@ -60,13 +61,13 @@ import {
 const result = compareAgainstGolden(myClientHello, "chrome-140:client-hello:1" as never);
 console.log(result.matches);
 
-// Run the TLS RFC compliance suite:
-const tlsResult = runTlsCompliance();
-console.log(tlsResult.pass);
+// Run the TLS RFC compliance suite (stub — throws until implemented):
+// const tlsResult = runTlsCompliance();
+// console.log(tlsResult.pass);
 
-// Benchmark a TLS handshake over 100 iterations:
-const stats = benchmarkTlsHandshake(100);
-console.log("p99:", stats.p99, "ms");
+// Benchmark a TLS handshake over 100 iterations (stub — throws until implemented):
+// const stats = benchmarkTlsHandshake(100);
+// console.log("p99:", stats.p99, "ms");
 ```
 
 ## Types

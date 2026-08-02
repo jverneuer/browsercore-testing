@@ -34,9 +34,11 @@ Feeds categories: **14 (packet capture comparison)**, **2 (TLS serialization)**,
 
 ## Phase 3 — TLS golden captures
 
-Record ClientHello + TLS extensions from Chrome 140, Firefox 135, Safari 18,
-Edge 140. Store as golden captures. Tests: our TLS stack's ClientHello
-byte-matches the capture for a given profile.
+Record ClientHello + TLS extensions from Chrome 140 (tls, http2) and Firefox 128
+(tls). Store as golden captures. Tests: our TLS stack's ClientHello byte-matches
+the capture for a given profile.
+
+— Safari 18, Edge 140, Firefox 135 captures not yet collected.
 
 Feeds categories: **2, 3, 4 (TLS fingerprint)**.
 
@@ -128,7 +130,7 @@ every PR; interoperability + benchmarks where practical.
 
 - [x] `compareBytes` / `bytesToHex` + typed errors implemented and tested.
 - [x] Typed `TestCategory` model with all 17 categories; per-category vitest stubs.
-- [ ] `loadGolden()` reads `.bin` + `.json` captures from disk.
+- [x] `loadGolden()` reads `.bin` + `.json` captures from disk. — loadGolden implemented; golden-comparison test pending.
 - [ ] TLS ClientHellos byte-match golden captures per profile.
 - [ ] HTTP/2 SETTINGS/HEADERS byte-match golden captures per profile.
 - [ ] All three RFC compliance suites run and report per-check results.
