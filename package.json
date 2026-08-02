@@ -1,5 +1,5 @@
 {
-  "name": "@network/testing",
+  "name": "@browsercore/testing",
   "version": "0.1.0",
   "description": "Protocol verification — RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
   "license": "MIT",
@@ -28,13 +28,13 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@network/cookies": "workspace:*",
-    "@network/crypto": "workspace:*",
-    "@network/fetch": "workspace:*",
-    "@network/http1": "workspace:*",
-    "@network/http2": "workspace:*",
-    "@network/profiles": "workspace:*",
-    "@network/tls": "workspace:*",
-    "@network/transport": "workspace:*"
+    "@browsercore/cookies": "^0.1.0",
+    "@browsercore/crypto": "^0.1.0",
+    "@browsercore/fetch": "^0.1.0",
+    "@browsercore/http1": "^0.1.0",
+    "@browsercore/http2": "^0.1.0",
+    "@browsercore/profiles": "^0.1.0",
+    "@browsercore/tls": "^0.1.0",
+    "@browsercore/transport": "^0.1.0"
   }
 }

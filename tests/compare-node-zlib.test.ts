@@ -2,7 +2,7 @@
  * Oracle self-consistency tests for the zlib reference (Cat 14 / compression).
  *
  * Proves the node:zlib round-trip contract and records the exact byte-level
- * behavior our future @network/compression must match. Every test runs ONLY
+ * behavior our future @browsercore/compression must match. Every test runs ONLY
  * against the nodeZlib oracle — no implementation under test exists yet.
  */
 
@@ -109,16 +109,16 @@ describe("zlib oracle self-consistency (reference contract)", () => {
         });
     });
 
-    describe("cross-implementation contract (pending @network/compression)", () => {
-        it.todo("implement @network/compression gzip and compare to nodeZlib.gzip bytes");
-        it.todo("implement @network/compression deflate and compare to nodeZlib.deflate bytes");
+    describe("cross-implementation contract (pending @browsercore/compression)", () => {
+        it.todo("implement @browsercore/compression gzip and compare to nodeZlib.gzip bytes");
+        it.todo("implement @browsercore/compression deflate and compare to nodeZlib.deflate bytes");
         it.todo(
-            "implement @network/compression brotliCompress and compare to nodeZlib.brotliCompress bytes",
+            "implement @browsercore/compression brotliCompress and compare to nodeZlib.brotliCompress bytes",
         );
-        it.todo("implement @network/compression gunzip and compare to nodeZlib.gunzip bytes");
-        it.todo("implement @network/compression inflate and compare to nodeZlib.inflate bytes");
+        it.todo("implement @browsercore/compression gunzip and compare to nodeZlib.gunzip bytes");
+        it.todo("implement @browsercore/compression inflate and compare to nodeZlib.inflate bytes");
         it.todo(
-            "implement @network/compression brotliDecompress and compare to nodeZlib.brotliDecompress bytes",
+            "implement @browsercore/compression brotliDecompress and compare to nodeZlib.brotliDecompress bytes",
         );
     });
 

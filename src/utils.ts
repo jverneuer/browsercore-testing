@@ -1,5 +1,5 @@
 /**
- * Small shared helpers for @network/testing.
+ * Small shared helpers for @browsercore/testing.
  */
 
 import type {

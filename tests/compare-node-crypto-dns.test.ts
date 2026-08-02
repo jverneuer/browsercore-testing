@@ -1,5 +1,5 @@
 /**
- * Oracle comparison tests: our @network/crypto + @network/transport vs the
+ * Oracle comparison tests: our @browsercore/crypto + @browsercore/transport vs the
  * Node.js reference oracle (node:crypto, node:dns).
  *
  * For identical inputs, our implementations MUST produce byte-identical output
@@ -11,8 +11,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { crypto } from "@network/crypto";
-import { DnsResolutionError, resolveHost } from "@network/transport";
+import { crypto } from "@browsercore/crypto";
+import { DnsResolutionError, resolveHost } from "@browsercore/transport";
 import { nodeCrypto, nodeDns } from "../src/reference/node-reference.js";
 
 /** Known SHA-256 digest of the empty buffer. */
@@ -25,7 +25,7 @@ const SHA384_EMPTY_HEX =
 
 /**
  * Normalize a Node Buffer / Uint8Array to a canonical, standalone Uint8Array.
- * Our @network/crypto impl returns Node Buffers (a Uint8Array subclass); the
+ * Our @browsercore/crypto impl returns Node Buffers (a Uint8Array subclass); the
  * oracle returns plain Uint8Array. vitest distinguishes the two by type, so we
  * canonicalize our side to compare bytes, not wrapper identity.
  */

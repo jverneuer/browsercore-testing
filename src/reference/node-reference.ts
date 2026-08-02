@@ -3,7 +3,7 @@
  *
  * Wraps Node's built-in implementations (node:crypto, node:zlib, node:dns,
  * node:net, node:http, node:http2, node:tls) behind a uniform comparator surface
- * so our @network/* packages can be tested for EQUIVALENT observable behavior.
+ * so our @browsercore/* packages can be tested for EQUIVALENT observable behavior.
  *
  * Design rule: we compare against Node only for LAYERS WHERE NODE IS THE SPEC
  * REFERENCE — crypto primitives, DNS resolution, compression, and wire-format
@@ -45,7 +45,7 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 export type HashAlgorithm = "sha256" | "sha384";
 const HASH_LENGTHS = { sha256: 32, sha384: 48 } as const;
 
-/** Validated HKDF/hash helpers that mirror the @network/crypto interface. */
+/** Validated HKDF/hash helpers that mirror the @browsercore/crypto interface. */
 export const nodeCrypto = {
     /** SHA-256 digest. Equivalent oracle for our `crypto.sha256`. */
     sha256(data: Uint8Array): Uint8Array {
@@ -111,7 +111,7 @@ export const nodeDns = {
     },
 } as const;
 
-/** Compression oracle (mirrors the future @network/compression interface). */
+/** Compression oracle (mirrors the future @browsercore/compression interface). */
 export const nodeZlib = {
     gzip(data: Uint8Array): Uint8Array {
         return toBytes(gzipSync(data));

@@ -1,5 +1,5 @@
 /**
- * Wire-format oracle tests: compare our @network/http1 and @network/http2
+ * Wire-format oracle tests: compare our @browsercore/http1 and @browsercore/http2
  * on-the-wire output against the layouts Node's own http/http2 stacks produce.
  *
  * These are equivalence tests for the SERIALIZED FORM only (RFC 7230 / RFC 7540),
@@ -10,20 +10,20 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { serializeRequest, parseResponse } from "@network/http1";
+import { serializeRequest, parseResponse } from "@browsercore/http1";
 import {
     serializeFrame,
     parseFrame,
     parseFrameHeader,
     FRAME_HEADER_LENGTH,
-} from "@network/http2";
+} from "@browsercore/http2";
 import {
     FrameType,
     type Http2StreamId,
     type PingFrame,
     type SettingsFrame,
     type WindowUpdateFrame,
-} from "@network/http2";
+} from "@browsercore/http2";
 import { nodeHttp } from "../src/reference/node-reference.js";
 
 /** Brand a plain number as an Http2StreamId (load-bearing type, not bare number). */
@@ -212,9 +212,9 @@ describe("HTTP/2 frame wire format vs node:http2", () => {
 
 describe("HTTP/2 documented gaps (stubs — not yet implemented)", () => {
     it.todo(
-        "HPACK encode matches node:http2 Http2Session outbound headers once @network/http2 hpack is implemented",
+        "HPACK encode matches node:http2 Http2Session outbound headers once @browsercore/http2 hpack is implemented",
     );
     it.todo(
-        "full HTTP/2 connection SETTINGS exchange matches node:http2 once @network/http2 connection is implemented",
+        "full HTTP/2 connection SETTINGS exchange matches node:http2 once @browsercore/http2 connection is implemented",
     );
 });

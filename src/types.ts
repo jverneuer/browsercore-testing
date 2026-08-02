@@ -1,5 +1,5 @@
 /**
- * Domain types for @network/testing.
+ * Domain types for @browsercore/testing.
  *
  * Protocol verification: RFC compliance tests, browser golden packet captures,
  * integration tests, and benchmarking. Compares generated packets against
@@ -136,7 +136,7 @@ export interface RandomizedField {
 /** Metadata describing a stored golden capture (sidecar to its `.bin`). */
 export interface CaptureMeta {
     readonly source: "curl-impersonate" | "real-browser";
-    readonly profile: import("@network/profiles").ProfileId;
+    readonly profile: import("@browsercore/profiles").ProfileId;
     readonly protocol: CaptureProtocol;
     readonly record: "client_hello" | "settings" | "headers" | "server_hello";
     readonly description: string;

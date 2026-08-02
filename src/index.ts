@@ -1,5 +1,5 @@
 /**
- * @network/testing — public API surface.
+ * @browsercore/testing — public API surface.
  *
  * Protocol verification: RFC compliance tests, browser golden packet captures,
  * integration tests, and benchmarking.

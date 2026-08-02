@@ -1,4 +1,4 @@
-# @network/testing — Implementation Plan
+# @browsercore/testing — Implementation Plan
 
 Protocol verification tooling. The canonical test specification lives in
 [`docs/TEST-SUITE.md`](../../docs/TEST-SUITE.md); this plan is the roadmap for
@@ -59,7 +59,7 @@ Feeds categories: **2, 5 (HTTP/1.1), 6**.
 ## Phase 6 — Browser comparison harness
 
 End-to-end: spin up a loopback server, run a real request through
-`@network/fetch`, record bytes, compare against the golden capture for the
+`@browsercore/fetch`, record bytes, compare against the golden capture for the
 active profile. Report divergence index + message.
 
 Feeds categories: **3, 14**.

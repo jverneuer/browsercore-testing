@@ -24,7 +24,7 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import type { ProfileId } from "@network/profiles";
+import type { ProfileId } from "@browsercore/profiles";
 import type { CaptureMeta, GoldenCapture } from "../types.js";
 import { computeJa3 } from "../fingerprint/ja3.js";
 import { computeJa4Fingerprint } from "../fingerprint/ja4.js";

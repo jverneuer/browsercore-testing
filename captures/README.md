@@ -1,6 +1,6 @@
 # captures/ — in-repo golden packet storage
 
-Pre-recorded golden captures used by `@network/testing` for serialization and
+Pre-recorded golden captures used by `@browsercore/testing` for serialization and
 packet-capture comparison (docs/TEST-SUITE.md, Categories 2, 3, 6, 14).
 
 ## Layout
@@ -13,7 +13,7 @@ captures/
       <record>.meta.json      # typed metadata (CaptureMeta)
 ```
 
-- `<profile>` is a branded `ProfileId` (see `@network/profiles`).
+- `<profile>` is a branded `ProfileId` (see `@browsercore/profiles`).
 - `<protocol>` is one of `tls`, `http2`, `http1`.
 - `<record>` names the message: `client_hello`, `settings`, `headers`,
   `server_hello`, …

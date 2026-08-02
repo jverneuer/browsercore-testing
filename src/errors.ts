@@ -1,5 +1,5 @@
 /**
- * Typed errors for @network/testing.
+ * Typed errors for @browsercore/testing.
  */
 
 /** Base class for every testing error. */

@@ -1,4 +1,4 @@
-# @network/testing
+# @browsercore/testing
 
 Protocol verification — RFC compliance tests, browser golden packet captures,
 integration tests, and benchmarking. Compares generated packets against
@@ -8,7 +8,7 @@ captures from real browsers.
 
 Verify that the protocol stacks produce byte-identical output to real browsers
 (RFC compliance) and measure their performance (benchmarking). Depends on every
-other `@network/*` package but is NOT required by them — purely a test/QA tool.
+other `@browsercore/*` package but is NOT required by them — purely a test/QA tool.
 
 ## What it does
 
@@ -54,7 +54,7 @@ import {
     runTlsCompliance,
     benchmarkTlsHandshake,
     GoldenMismatchError,
-} from "@network/testing";
+} from "@browsercore/testing";
 
 // Compare our ClientHello against a Chrome 140 capture:
 const result = compareAgainstGolden(myClientHello, "chrome-140:client-hello:1" as never);
@@ -87,12 +87,12 @@ console.log("p99:", stats.p99, "ms");
 ## Dependency graph
 
 ```
-@network/testing
-  └─ @network/fetch  @network/http2  @network/http1  @network/cookies
-        └─ @network/profiles  @network/tls  @network/crypto
-              └─ @network/transport
+@browsercore/testing
+  └─ @browsercore/fetch  @browsercore/http2  @browsercore/http1  @browsercore/cookies
+        └─ @browsercore/profiles  @browsercore/tls  @browsercore/crypto
+              └─ @browsercore/transport
                     └─ node:net / node:crypto
 ```
 
-`@network/testing` sits at the very top — it depends on everything and nothing
+`@browsercore/testing` sits at the very top — it depends on everything and nothing
 depends on it.
