@@ -1,0 +1,98 @@
+# @network/testing
+
+Protocol verification — RFC compliance tests, browser golden packet captures,
+integration tests, and benchmarking. Compares generated packets against
+captures from real browsers.
+
+## Responsibility
+
+Verify that the protocol stacks produce byte-identical output to real browsers
+(RFC compliance) and measure their performance (benchmarking). Depends on every
+other `@network/*` package but is NOT required by them — purely a test/QA tool.
+
+## What it does
+
+The full specification is in [`docs/TEST-SUITE.md`](../../docs/TEST-SUITE.md) —
+17 test categories, layered from unit checks up through real-world
+interoperability:
+
+| # | Category | Layer |
+| --- | --- | --- |
+| 1 | TCP Transport | unit / loopback |
+| 2 | TLS Serialization | serialization |
+| 3 | Browser Profile Comparison | golden |
+| 4 | TLS Fingerprint | serialization |
+| 5 | HTTP/1.1 | RFC compliance |
+| 6 | HTTP/2 | serialization |
+| 7 | Header Profiles | golden |
+| 8 | Cookie Behavior | unit |
+| 9 | Compression | unit |
+| 10 | Redirect Handling | unit |
+| 11 | Session Resumption | serialization |
+| 12 | Connection Reuse | unit |
+| 13 | Error Handling | unit |
+| 14 | Packet Capture Comparison | golden / reference |
+| 15 | Real World Compatibility | reference |
+| 16 | Regression Tests | unit |
+| 17 | Performance Benchmarks | benchmark |
+
+In short:
+
+- **Golden packet testing** — load `.bin` captures recorded from real browsers
+  (Chrome 140, Firefox 135, Safari 18, Edge 140) and compare our generated TLS
+  ClientHellos, HTTP/2 SETTINGS/HEADERS frames, etc. against them.
+- **RFC compliance** — run focused test suites for TLS 1.3 (RFC 8446), HTTP/2
+  (RFC 9113), HTTP/1.1 (RFC 9110).
+- **Benchmarking** — measure handshake latency and request throughput at
+  p50/p95/p99.
+
+## Public API
+
+```ts
+import {
+    compareAgainstGolden,
+    runTlsCompliance,
+    benchmarkTlsHandshake,
+    GoldenMismatchError,
+} from "@network/testing";
+
+// Compare our ClientHello against a Chrome 140 capture:
+const result = compareAgainstGolden(myClientHello, "chrome-140:client-hello:1" as never);
+console.log(result.matches);
+
+// Run the TLS RFC compliance suite:
+const tlsResult = runTlsCompliance();
+console.log(tlsResult.pass);
+
+// Benchmark a TLS handshake over 100 iterations:
+const stats = benchmarkTlsHandshake(100);
+console.log("p99:", stats.p99, "ms");
+```
+
+## Types
+
+| Export | Kind | Purpose |
+| --- | --- | --- |
+| `compareAgainstGolden()` | function | Compare bytes against a golden capture |
+| `loadGolden()` | function | Load a golden capture by id |
+| `runTlsCompliance()` | function | TLS RFC 8446 compliance suite |
+| `runHttp2Compliance()` | function | HTTP/2 RFC 9113 compliance suite |
+| `runHttp1Compliance()` | function | HTTP/1.1 RFC 9110 compliance suite |
+| `benchmarkTlsHandshake()` | function | TLS handshake benchmark |
+| `benchmarkHttp2Request()` | function | HTTP/2 request benchmark |
+| `GoldenCapture` | interface | A recorded packet capture |
+| `ComparisonResult` | interface | Outcome of a golden comparison |
+| `BenchStats` | interface | p50/p95/p99 latency stats |
+
+## Dependency graph
+
+```
+@network/testing
+  └─ @network/fetch  @network/http2  @network/http1  @network/cookies
+        └─ @network/profiles  @network/tls  @network/crypto
+              └─ @network/transport
+                    └─ node:net / node:crypto
+```
+
+`@network/testing` sits at the very top — it depends on everything and nothing
+depends on it.
