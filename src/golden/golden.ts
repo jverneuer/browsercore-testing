@@ -13,8 +13,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type {
     CaptureId,
     CaptureMeta,
@@ -26,7 +25,7 @@ import type {
 import { compareBytes, compareBytesWithIgnore } from "../utils.js";
 import { GoldenMismatchError, TestingError } from "../errors.js";
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = import.meta.dirname;
 // src/golden -> package root -> captures/
 const capturesDir = join(here, "..", "..", "captures");
 
@@ -36,7 +35,7 @@ function parseCaptureId(captureId: CaptureId): {
     readonly protocol: string;
     readonly record: string;
 } {
-    const EXPECTED_FORMAT = "${profile}/${protocol}/${record}";
+    const EXPECTED_FORMAT = `\${profile}/\${protocol}/\${record}`;
     const parts = captureId.split("/");
     if (parts.length !== 3) {
         throw new TestingError(
@@ -52,8 +51,13 @@ function parseCaptureId(captureId: CaptureId): {
     return { profile, protocol, record };
 }
 
-/** Validate unknown JSON data as a {@link CaptureMeta} (no zod dep here). */
-function parseCaptureMeta(raw: unknown, captureId: string): CaptureMeta {
+/**
+ * Validate unknown JSON data as a {@link CaptureMeta} (no zod dep here).
+ *
+ * Exported for unit testing the validation branches — the error paths are only
+ * reachable with a malformed sidecar, which the on-disk captures are not.
+ */
+export function parseCaptureMeta(raw: unknown, captureId: string): CaptureMeta {
     if (typeof raw !== "object" || raw === null) {
         throw new TestingError(`Capture meta for ${captureId} is not an object`);
     }
@@ -103,8 +107,13 @@ function parseCaptureMeta(raw: unknown, captureId: string): CaptureMeta {
     };
 }
 
-/** Validate unknown data as a list of {@link RandomizedField}. */
-function parseRandomizedFields(raw: unknown, captureId: string): readonly RandomizedField[] {
+/**
+ * Validate unknown data as a list of {@link RandomizedField}.
+ *
+ * Exported for unit testing the validation branches — the error paths are only
+ * reachable with a malformed sidecar, which the on-disk captures are not.
+ */
+export function parseRandomizedFields(raw: unknown, captureId: string): readonly RandomizedField[] {
     if (!Array.isArray(raw)) {
         throw new TestingError(`Capture meta for ${captureId} has non-array randomizedFields`);
     }
@@ -187,10 +196,18 @@ export function loadGolden(captureId: CaptureId): GoldenCapture {
 /** Derive a {@link CaptureSource} from a profile id (best-effort). */
 function parseSource(profile: CaptureMeta["profile"]): GoldenCapture["source"] {
     const p = String(profile);
-    if (p.startsWith("chrome")) return "chrome-140";
-    if (p.startsWith("firefox")) return "firefox-135";
-    if (p.startsWith("safari")) return "safari-18";
-    if (p.startsWith("edge")) return "edge-140";
+    if (p.startsWith("chrome")) {
+        return "chrome-140";
+    }
+    if (p.startsWith("firefox")) {
+        return "firefox-135";
+    }
+    if (p.startsWith("safari")) {
+        return "safari-18";
+    }
+    if (p.startsWith("edge")) {
+        return "edge-140";
+    }
     return "chrome-140";
 }
 

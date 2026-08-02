@@ -24,7 +24,12 @@ export class Ja3ParseError extends Error {
 
 /** Read a big-endian uint16 at `offset` in `buf`. */
 function uint16(buf: Uint8Array, offset: number): number {
-    return (buf[offset]! << 8) | buf[offset + 1]!;
+    const hi = buf[offset];
+    const lo = buf[offset + 1];
+    if (hi === undefined || lo === undefined) {
+        throw new Ja3ParseError(`uint16 read out of bounds at offset ${offset}`);
+    }
+    return (hi << 8) | lo;
 }
 
 /**
@@ -91,7 +96,10 @@ export function parseClientHello(clientHello: Uint8Array): Ja3Segments {
     // random(32)
     pos += 32;
     // session_id(variable)
-    const sessionIdLen = clientHello[pos]!;
+    const sessionIdLen = clientHello[pos];
+    if (sessionIdLen === undefined) {
+        throw new Ja3ParseError("ClientHello truncated at session id length");
+    }
     pos += 1 + sessionIdLen;
     // cipher_suites(variable)
     const cipherSuitesLen = uint16(clientHello, pos);
@@ -99,7 +107,10 @@ export function parseClientHello(clientHello: Uint8Array): Ja3Segments {
     const ciphers = readUint16List(clientHello, pos, cipherSuitesLen);
     pos += cipherSuitesLen;
     // compression_methods(variable)
-    const compLen = clientHello[pos]!;
+    const compLen = clientHello[pos];
+    if (compLen === undefined) {
+        throw new Ja3ParseError("ClientHello truncated at compression methods length");
+    }
     pos += 1 + compLen;
     // extensions(variable)
     if (pos + 2 > end) {
@@ -132,9 +143,16 @@ export function parseClientHello(clientHello: Uint8Array): Ja3Segments {
             supportedGroups.push(...readUint16List(clientHello, pos + 2, listLen));
         } else if (extType === 0x000b && extLen >= 1) {
             // ec_point_formats(11): list of uint8 formats
-            const listLen = clientHello[pos]!;
+            const listLen = clientHello[pos];
+            if (listLen === undefined) {
+                throw new Ja3ParseError("ClientHello truncated at ec_point_formats length");
+            }
             for (let i = 0; i < listLen; i++) {
-                ecPointFormats.push(clientHello[pos + 1 + i]!);
+                const fmt = clientHello[pos + 1 + i];
+                if (fmt === undefined) {
+                    throw new Ja3ParseError("ClientHello truncated in ec_point_formats list");
+                }
+                ecPointFormats.push(fmt);
             }
         }
 
@@ -151,13 +169,24 @@ export function parseClientHello(clientHello: Uint8Array): Ja3Segments {
 }
 
 function readInt24(buf: Uint8Array, offset: number): number {
-    return (buf[offset]! << 16) | (buf[offset + 1]! << 8) | buf[offset + 2]!;
+    const hi = buf[offset];
+    const mid = buf[offset + 1];
+    const lo = buf[offset + 2];
+    if (hi === undefined || mid === undefined || lo === undefined) {
+        throw new Ja3ParseError(`readInt24 out of bounds at offset ${offset}`);
+    }
+    return (hi << 16) | (mid << 8) | lo;
 }
 
 function readUint16List(buf: Uint8Array, offset: number, byteLen: number): number[] {
     const out: number[] = [];
     for (let i = 0; i + 1 < byteLen; i += 2) {
-        out.push((buf[offset + i]! << 8) | buf[offset + i + 1]!);
+        const hi = buf[offset + i];
+        const lo = buf[offset + i + 1];
+        if (hi === undefined || lo === undefined) {
+            throw new Ja3ParseError(`readUint16List out of bounds at offset ${offset + i}`);
+        }
+        out.push((hi << 8) | lo);
     }
     return out;
 }

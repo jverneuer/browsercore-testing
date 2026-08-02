@@ -14,7 +14,7 @@ import type {
  * Adding a new union member forces every handler to compile-error until handled.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function assertNever(x: never): never {
+export function assertNever(x: never): Error {
     throw new Error(`Unexpected value: ${JSON.stringify(x)}`);
 }
 
@@ -26,8 +26,8 @@ export function createId(prefix: "tc" = "tc"): string {
 /** Format bytes as a lowercase hex string with no separators. */
 export function bytesToHex(buf: Uint8Array): string {
     let out = "";
-    for (let i = 0; i < buf.length; i++) {
-        out += buf[i]!.toString(16).padStart(2, "0");
+    for (const byte of buf) {
+        out += byte.toString(16).padStart(2, "0");
     }
     return out;
 }
@@ -78,8 +78,12 @@ export function compareBytesWithIgnore(
 
     const isMasked = (index: number): boolean => {
         for (const range of ranges) {
-            if (index < range.byteOffset) return false;
-            if (index < range.byteOffset + range.length) return true;
+            if (index < range.byteOffset) {
+                return false;
+            }
+            if (index < range.byteOffset + range.length) {
+                return true;
+            }
         }
         return false;
     };
@@ -89,7 +93,9 @@ export function compareBytesWithIgnore(
         const inA = i < a.length;
         const inB = i < b.length;
         if (!inA || !inB) {
-            if (isMasked(i)) continue;
+            if (isMasked(i)) {
+                continue;
+            }
             return {
                 matches: false,
                 divergenceByteIndex: i,

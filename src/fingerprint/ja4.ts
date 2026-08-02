@@ -94,12 +94,23 @@ const TLS_VERSIONS = new Map<number, string>([
 
 /** Read a big-endian uint16 at `offset` in `buf` (unchecked — caller bounds). */
 function uint16(buf: Uint8Array, offset: number): number {
-    return (buf[offset]! << 8) | buf[offset + 1]!;
+    const hi = buf[offset];
+    const lo = buf[offset + 1];
+    if (hi === undefined || lo === undefined) {
+        throw new Ja4ParseError(`uint16 read out of bounds at offset ${offset}`);
+    }
+    return (hi << 8) | lo;
 }
 
 /** Read a 24-bit big-endian integer at `offset` in `buf`. */
 function uint24(buf: Uint8Array, offset: number): number {
-    return (buf[offset]! << 16) | (buf[offset + 1]! << 8) | buf[offset + 2]!;
+    const hi = buf[offset];
+    const mid = buf[offset + 1];
+    const lo = buf[offset + 2];
+    if (hi === undefined || mid === undefined || lo === undefined) {
+        throw new Ja4ParseError(`uint24 read out of bounds at offset ${offset}`);
+    }
+    return (hi << 16) | (mid << 8) | lo;
 }
 
 /** Format a number as a 4-char lowercase hex string (`0x1a2b` → `"1a2b"`). */
@@ -176,7 +187,10 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
         throw new Ja4ParseError("ClientHello truncated before session id");
     }
     // session_id(variable)
-    const sessionIdLen = clientHello[pos]!;
+    const sessionIdLen = clientHello[pos];
+    if (sessionIdLen === undefined) {
+        throw new Ja4ParseError("ClientHello truncated at session id length");
+    }
     pos += 1 + sessionIdLen;
     if (pos + 2 > end) {
         throw new Ja4ParseError("ClientHello truncated before cipher suites");
@@ -199,7 +213,10 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
         throw new Ja4ParseError("ClientHello truncated before compression methods");
     }
     // compression_methods(variable)
-    const compLen = clientHello[pos]!;
+    const compLen = clientHello[pos];
+    if (compLen === undefined) {
+        throw new Ja4ParseError("ClientHello truncated at compression methods length");
+    }
     pos += 1 + compLen;
     if (pos + 2 > end) {
         // No extensions present.
@@ -239,38 +256,17 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
                 break;
             case EXT_SUPPORTED_GROUPS:
                 if (extLen >= 4) {
-                    const listLen = uint16(clientHello, pos);
-                    for (let i = 0; i + 1 < listLen; i += 2) {
-                        const group = uint16(clientHello, pos + 2 + i);
-                        if (!GREASE_VALUES.has(group)) {
-                            supportedGroups.push(group);
-                        }
-                    }
+                    supportedGroups.push(...readSupportedGroups(clientHello, pos));
                 }
                 break;
             case EXT_EC_POINT_FORMATS:
                 if (extLen >= 1) {
-                    const listLen = clientHello[pos]!;
-                    for (let i = 0; i < listLen; i++) {
-                        ecPointFormats.push(clientHello[pos + 1 + i]!);
-                    }
+                    ecPointFormats.push(...readEcPointFormats(clientHello, pos));
                 }
                 break;
             case EXT_ALPN:
                 if (extLen >= 2) {
-                    const listLen = uint16(clientHello, pos);
-                    let cursor = pos + 2;
-                    const protocols: string[] = [];
-                    const listEnd = cursor + listLen;
-                    while (cursor < listEnd) {
-                        const protoLen = clientHello[cursor]!;
-                        cursor += 1;
-                        protocols.push(
-                            new TextDecoder().decode(clientHello.subarray(cursor, cursor + protoLen)),
-                        );
-                        cursor += protoLen;
-                    }
-                    alpnRaw = protocols.join(",");
+                    alpnRaw = readAlpnProtocols(clientHello, pos);
                 }
                 break;
             case EXT_SUPPORTED_VERSIONS:
@@ -301,10 +297,69 @@ function alpnCode(alpnRaw: string): string {
     }
     const protocols = alpnRaw.split(",");
     const first = protocols[0] ?? "";
-    const last = protocols[protocols.length - 1] ?? "";
-    const a = first.length > 0 ? first[0]! : "0";
-    const b = last.length > 0 ? last[0]! : "0";
+    const last = protocols.at(-1) ?? "";
+    const a = first.length > 0 ? first[0] ?? "0" : "0";
+    const b = last.length > 0 ? last[0] ?? "0" : "0";
     return `${a}${b}`.toLowerCase();
+}
+
+/**
+ * Read the non-GREASE supported_groups(10) list that starts at `pos`.
+ * `pos` points at the 2-byte list length. Throws {@link Ja4ParseError} on
+ * truncation.
+ */
+function readSupportedGroups(clientHello: Uint8Array, pos: number): number[] {
+    const listLen = uint16(clientHello, pos);
+    const groups: number[] = [];
+    for (let i = 0; i + 1 < listLen; i += 2) {
+        const group = uint16(clientHello, pos + 2 + i);
+        if (!GREASE_VALUES.has(group)) {
+            groups.push(group);
+        }
+    }
+    return groups;
+}
+
+/**
+ * Read the ec_point_formats(11) list that starts at `pos`. `pos` points at the
+ * 1-byte list length. Throws {@link Ja4ParseError} on truncation.
+ */
+function readEcPointFormats(clientHello: Uint8Array, pos: number): number[] {
+    const listLen = clientHello[pos];
+    if (listLen === undefined) {
+        throw new Ja4ParseError("ClientHello truncated at ec_point_formats length");
+    }
+    const formats: number[] = [];
+    for (let i = 0; i < listLen; i++) {
+        const fmt = clientHello[pos + 1 + i];
+        if (fmt === undefined) {
+            throw new Ja4ParseError("ClientHello truncated in ec_point_formats list");
+        }
+        formats.push(fmt);
+    }
+    return formats;
+}
+
+/**
+ * Read the ALPN protocol list that starts at `pos`. `pos` points at the 2-byte
+ * list length. Returns the comma-joined protocol string. Throws
+ * {@link Ja4ParseError} on truncation.
+ */
+function readAlpnProtocols(clientHello: Uint8Array, pos: number): string {
+    const listLen = uint16(clientHello, pos);
+    let cursor = pos + 2;
+    const protocols: string[] = [];
+    const listEnd = cursor + listLen;
+    while (cursor < listEnd) {
+        const protoLen = clientHello[cursor];
+        if (protoLen === undefined) {
+            throw new Ja4ParseError("ClientHello truncated at ALPN protocol length");
+        }
+        cursor += 1;
+        protocols.push(new TextDecoder().decode(clientHello.subarray(cursor, cursor + protoLen)));
+        cursor += protoLen;
+    }
+    return protocols.join(",");
 }
 
 /**
@@ -334,14 +389,14 @@ export function computeJa4Fingerprint(clientHello: Uint8Array): Ja4Fingerprint {
         .padStart(2, "0")}${sniFlag}${hello.tlsVersion}${alpnCode(hello.alpnRaw)}`;
 
     // JA4_b: sorted cipher suites, 4-char hex, SHA-256, first 12 hex.
-    const sortedCiphers = [...hello.cipherSuites].sort((x, y) => x - y).map(hex4).join("");
+    const sortedCiphers = [...hello.cipherSuites].sort((x, y) => x - y).map((s) => hex4(s)).join("");
     const b = sortedCiphers.length > 0 ? sha256First12(sortedCiphers) : "000000000000";
 
     // JA4_c: sorted extensions (excluding SNI=0, ALPN=16), 4-char hex.
     const filteredExts = hello.extensions
         .filter((e) => e !== EXT_SNI && e !== EXT_ALPN)
         .sort((x, y) => x - y)
-        .map(hex4)
+        .map((e) => hex4(e))
         .join("");
     const c = filteredExts.length > 0 ? sha256First12(filteredExts) : "000000000000";
 

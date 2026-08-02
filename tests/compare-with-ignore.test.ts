@@ -56,4 +56,30 @@ describe("compareBytesWithIgnore", () => {
         expect(result.matches).toBe(false);
         expect(result.divergenceByteIndex).toBe(2);
     });
+
+    // isMasked() short-circuits to false when the scan index is BEFORE the
+    // first masked range (line 81). Exercise that early-return: the divergence
+    // is at byte 0, the mask starts at byte 5.
+    it("reports a divergence that precedes the masked range", () => {
+        const a = new Uint8Array([0x16, 0x03, 0x01, 0x00, 0x04, 0xaa, 0xbb]);
+        const b = new Uint8Array([0x00, 0x03, 0x01, 0x00, 0x04, 0xaa, 0xbb]);
+        const result = compareBytesWithIgnore(a, b, [
+            { byteOffset: 5, length: 2, reason: "ephemeral_key" },
+        ]);
+        expect(result.matches).toBe(false);
+        expect(result.divergenceByteIndex).toBe(0);
+    });
+
+    // When one buffer is shorter and the missing bytes fall INSIDE a masked
+    // range, the length divergence is skipped (line 92) and the comparison
+    // reports a match.
+    it("treats a length divergence as a match when the tail is masked", () => {
+        const a = new Uint8Array([1, 2, 3]);
+        const b = new Uint8Array([1, 2, 3, 9, 9]);
+        const result = compareBytesWithIgnore(a, b, [
+            { byteOffset: 3, length: 4, reason: "nonce" },
+        ]);
+        expect(result.matches).toBe(true);
+        expect(result.maskedRanges).toHaveLength(1);
+    });
 });

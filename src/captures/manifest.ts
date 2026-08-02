@@ -9,12 +9,11 @@
  */
 
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { ProfileId } from "@browsercore/profiles";
 import type { CaptureMeta } from "../types.js";
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = import.meta.dirname;
 // src/captures -> package root -> captures/
 const capturesDir = join(here, "..", "..", "captures");
 

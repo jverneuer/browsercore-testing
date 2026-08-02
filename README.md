@@ -1,5 +1,10 @@
 # @browsercore/testing
 
+
+[![npm version](https://img.shields.io/npm/v/@browsercore/testing)](https://www.npmjs.com/package/@browsercore/testing)
+[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jverneuer/browsercore-testing/main/coverage/badge.json)](https://github.com/jverneuer/browsercore-testing/blob/main/COVERAGE.md)
+[![lint](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-testing/ci.yml?label=lint)](https://github.com/jverneuer/browsercore-testing/actions/workflows/ci.yml)
+
 Protocol verification — RFC compliance tests, browser golden packet captures,
 integration tests, and benchmarking. Compares generated packets against
 captures from real browsers.

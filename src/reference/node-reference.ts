@@ -17,11 +17,16 @@
  */
 
 import { createHash, createHmac, hkdfSync, randomBytes } from "node:crypto";
-import { gunzipSync, gzipSync, brotliCompressSync, brotliDecompressSync } from "node:zlib";
-import { lookup as dnsLookup } from "node:dns";
-import type { LookupOneOptions } from "node:dns";
-import { deflateSync, inflateSync, constants as zlibConstants } from "node:zlib";
-import { assertNever } from "../utils.js";
+import {
+    deflateSync,
+    inflateSync,
+    gunzipSync,
+    gzipSync,
+    brotliCompressSync,
+    brotliDecompressSync,
+    constants as zlibConstants,
+} from "node:zlib";
+import { lookup as dnsLookup, type LookupOneOptions } from "node:dns";
 
 /** Normalize a Node Buffer / Uint8Array / readonly Uint8Array to a fresh Uint8Array. */
 function toBytes(data: Uint8Array | Buffer): Uint8Array {
@@ -94,7 +99,7 @@ export const nodeCrypto = {
 /** DNS resolution oracle (mirrors our `resolveHost`). */
 export const nodeDns = {
     /** Resolve a host to an address, matching our `resolveHost` semantics. */
-    async lookup(
+    lookup(
         host: string,
         ipv6: boolean,
     ): Promise<{ readonly address: string; readonly family: 4 | 6 }> {
@@ -198,5 +203,3 @@ function firstDiff(a: Uint8Array, b: Uint8Array): number {
     }
     return len;
 }
-
-void assertNever;

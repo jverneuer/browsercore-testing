@@ -20,20 +20,32 @@
  * See docs/TEST-SUITE.md (Cat 3, 4, 14) for how references feed comparison.
  */
 
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { execFile, type ExecFileOptions } from "node:child_process";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { ProfileId } from "@browsercore/profiles";
 import type { CaptureMeta, GoldenCapture } from "../types.js";
-import { computeJa3 } from "../fingerprint/ja3.js";
-import { computeJa4Fingerprint } from "../fingerprint/ja4.js";
+import { computeJa3, computeJa4Fingerprint } from "../fingerprint/index.js";
 import { loadCaptureMeta } from "../golden/golden.js";
 import { TestingError } from "../errors.js";
+import { assertNever } from "../utils.js";
 
-const execFileAsync = promisify(execFile);
+type ExecFileAsync = (
+    command: string,
+    args: readonly string[],
+    options?: ExecFileOptions,
+) => Promise<{ readonly stdout: string; readonly stderr: string }>;
 
-const here = dirname(fileURLToPath(import.meta.url));
+// execFile returns a ChildProcess, but promisify expects a void-returning
+// function — the cast satisfies strict-void-return without changing runtime
+// behavior. The cast is erased at runtime, so util.promisify.custom is
+// preserved and the promise still resolves to {stdout, stderr}, keeping the
+// stderr channel.
+const execFileAsync = promisify(
+    execFile as unknown as (...args: Parameters<typeof execFile>) => void,
+) as unknown as ExecFileAsync;
+
+const here = import.meta.dirname;
 const packageRoot = join(here, "..", "..");
 const defaultCapturesDir = join(packageRoot, "captures");
 
@@ -243,7 +255,9 @@ export class ReferenceProviderFacade implements ReferenceProvider {
         const out: ProfileId[] = [];
         for (const p of [...this.primary.availableProfiles(), ...this.secondary.availableProfiles()]) {
             const key = String(p);
-            if (seen.has(key)) continue;
+            if (seen.has(key)) {
+                continue;
+            }
             seen.add(key);
             out.push(p);
         }
@@ -303,6 +317,10 @@ export function createReferenceProvider(
             return new CurlImpersonateProvider(options as CurlImpersonateOptions | undefined);
         case "real-browser":
             return new RealBrowserCaptureProvider(options as RealBrowserOptions | undefined);
+        default:
+            // Exhaustiveness guaranteed by the union — unreachable unless a new
+            // provider kind is added without a handler.
+            throw assertNever(kind);
     }
 }
 
@@ -318,9 +336,15 @@ export function createReferenceFacade(options?: ReferenceFacadeOptions): Referen
 /** Map a {@link ProfileId} to its {@link CaptureSource} tag. */
 function profileToSource(profile: ProfileId): GoldenCapture["source"] {
     const p = String(profile);
-    if (p.startsWith("firefox")) return "firefox-135";
-    if (p.startsWith("safari")) return "safari-18";
-    if (p.startsWith("edge")) return "edge-140";
+    if (p.startsWith("firefox")) {
+        return "firefox-135";
+    }
+    if (p.startsWith("safari")) {
+        return "safari-18";
+    }
+    if (p.startsWith("edge")) {
+        return "edge-140";
+    }
     return "chrome-140";
 }
 
@@ -331,12 +355,17 @@ function profileToSource(profile: ProfileId): GoldenCapture["source"] {
  * payload between the markers. For now we assume the body is a contiguous hex
  * block — adjust the parser if curl-impersonate's format differs.
  */
-function parseDumpOutput(stdout: string): Uint8Array {
+/**
+ * Parse curl-impersonate `--dump-traffic` output into raw bytes.
+ *
+ * Exported for unit testing the parse error branches (no hex / odd-length hex).
+ */
+export function parseDumpOutput(stdout: string): Uint8Array {
     // Find the hex body — everything after the ">>> traffic <<<" marker.
     const marker = ">>> traffic <<<";
     const idx = stdout.indexOf(marker);
     const body = idx === -1 ? stdout : stdout.slice(idx + marker.length);
-    const hex = body.replace(/[^0-9a-fA-F]/g, "");
+    const hex = body.replaceAll(/[^0-9a-fA-F]/gu, "");
     if (hex.length === 0) {
         throw new ReferenceError("curl-impersonate dump produced no hex bytes");
     }
@@ -359,24 +388,27 @@ function parseDumpOutput(stdout: string): Uint8Array {
  * (supported groups, signature algorithms, ALPN) from the sidecar
  * `.meta.json` when available.
  */
-function fingerprintFromTlsCapture(capture: GoldenCapture): Fingerprint {
+/**
+ * Derive a {@link Fingerprint} from a TLS ClientHello capture.
+ *
+ * Exported for unit testing the try/catch branches: the happy path reads the
+ * sidecar meta, while the fallback path is taken when the sidecar is missing.
+ */
+export function fingerprintFromTlsCapture(capture: GoldenCapture): Fingerprint {
     const ja3 = computeJa3(capture.bytes);
     const ja4 = computeJa4Fingerprint(capture.bytes);
 
     // Read the sidecar meta for richer fields (signature algorithms, ALPN,
     // supported curves). Fall back to empty arrays if missing.
-    let alpn: readonly string[] = [];
-    let signatureAlgorithms: readonly string[] = [];
-    let ellipticCurves: readonly string[] = [];
+    const alpn: readonly string[] = [];
+    const signatureAlgorithms: readonly string[] = [];
+    const ellipticCurves: readonly string[] = [];
     try {
         const meta: CaptureMeta = loadCaptureMeta(capture.id);
         if (meta.protocol === "tls") {
             // CaptureMeta doesn't carry ALPN/sigAlgs/curves yet; this is a
             // placeholder for when the sidecar schema is extended.
             void meta;
-            void alpn;
-            void signatureAlgorithms;
-            void ellipticCurves;
         }
     } catch {
         // Sidecar missing or unparseable — leave richer fields empty.
@@ -400,7 +432,12 @@ function fingerprintFromTlsCapture(capture: GoldenCapture): Fingerprint {
  * that returns the JA4_a segment for inspection. Real cipher-suite resolution
  * requires parsing the ServerHello, which is out of scope for the capture.
  */
-function cipherSuiteName(ja4Tag: string): string {
+/**
+ * Extract a human-readable cipher-suite name from a JA4 tag.
+ *
+ * Exported for unit testing the empty-tag fallback branch.
+ */
+export function cipherSuiteName(ja4Tag: string): string {
     const a = ja4Tag.split("_")[0] ?? "";
     return a.length > 0 ? a : "unknown";
 }

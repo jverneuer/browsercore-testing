@@ -6,6 +6,8 @@
  * captures from real browsers.
  */
 
+import type { ProfileId } from "@browsercore/profiles";
+
 /** Branded test-case identifier. */
 export type TestCaseId = string & { __brand: "TestCaseId" };
 
@@ -136,7 +138,7 @@ export interface RandomizedField {
 /** Metadata describing a stored golden capture (sidecar to its `.bin`). */
 export interface CaptureMeta {
     readonly source: "curl-impersonate" | "real-browser";
-    readonly profile: import("@browsercore/profiles").ProfileId;
+    readonly profile: ProfileId;
     readonly protocol: CaptureProtocol;
     readonly record: "client_hello" | "settings" | "headers" | "server_hello";
     readonly description: string;
