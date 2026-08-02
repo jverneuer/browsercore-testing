@@ -26,15 +26,5 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["tests", "dist"],
-  "references": [
-    { "path": "../transport" },
-    { "path": "../crypto" },
-    { "path": "../tls" },
-    { "path": "../http1" },
-    { "path": "../http2" },
-    { "path": "../profiles" },
-    { "path": "../cookies" },
-    { "path": "../fetch" }
-  ]
+  "exclude": ["tests", "dist"]
 }
