@@ -13,7 +13,6 @@
 
 import {
     execFile,
-    type ExecFileException,
     type ExecFileOptionsWithStringEncoding,
 } from "node:child_process";
 import type { ProfileId } from "@browsercore/profiles";
@@ -51,7 +50,7 @@ function runExecFile(
     options: ExecFileOptionsWithStringEncoding,
 ): Promise<ExecResult> {
     return new Promise((resolve, reject) => {
-        execFile(command, args, options, (err: ExecFileException | null, stdout, stderr) => {
+        execFile(command, args, options, (err: Error | null, stdout, stderr) => {
             if (err !== null) {
                 reject(err);
                 return;

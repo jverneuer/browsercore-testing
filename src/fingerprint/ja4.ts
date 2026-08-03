@@ -230,10 +230,8 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
             if (extLen >= 1) {
                 ecPointFormats.push(...readEcPointFormats(clientHello, pos));
             }
-        } else if (extType === EXT_ALPN) {
-            if (extLen >= 2) {
-                alpnRaw = readAlpnProtocols(clientHello, pos);
-            }
+        } else if (extType === EXT_ALPN && extLen >= 2) {
+            alpnRaw = readAlpnProtocols(clientHello, pos);
         }
         // EXT_SUPPORTED_VERSIONS: JA4 uses the highest supported version from
         // this extension — no parsing needed here.
