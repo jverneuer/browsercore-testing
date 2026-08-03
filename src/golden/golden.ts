@@ -63,19 +63,19 @@ export function parseCaptureMeta(raw: unknown, captureId: string): CaptureMeta {
     }
     const obj = raw as Record<string, unknown>;
 
-    const source = obj.source;
+    const source = obj["source"];
     if (source !== "curl-impersonate" && source !== "real-browser") {
         throw new TestingError(
             `Capture meta for ${captureId} has invalid source: ${String(source)}`,
         );
     }
-    const protocol = obj.protocol;
+    const protocol = obj["protocol"];
     if (protocol !== "tls" && protocol !== "http2" && protocol !== "http1" && protocol !== "tcp") {
         throw new TestingError(
             `Capture meta for ${captureId} has invalid protocol: ${String(protocol)}`,
         );
     }
-    const record = obj.record;
+    const record = obj["record"];
     if (
         record !== "client_hello" &&
         record !== "settings" &&
@@ -86,19 +86,19 @@ export function parseCaptureMeta(raw: unknown, captureId: string): CaptureMeta {
             `Capture meta for ${captureId} has invalid record: ${String(record)}`,
         );
     }
-    const description = obj.description;
+    const description = obj["description"];
     if (typeof description !== "string") {
         throw new TestingError(`Capture meta for ${captureId} has non-string description`);
     }
-    const createdAt = obj.createdAt;
+    const createdAt = obj["createdAt"];
     if (typeof createdAt !== "string") {
         throw new TestingError(`Capture meta for ${captureId} has non-string createdAt`);
     }
-    const randomizedFields = parseRandomizedFields(obj.randomizedFields, captureId);
+    const randomizedFields = parseRandomizedFields(obj["randomizedFields"], captureId);
 
     return {
         source,
-        profile: obj.profile as CaptureMeta["profile"],
+        profile: obj["profile"] as CaptureMeta["profile"],
         protocol,
         record,
         description,
@@ -124,19 +124,19 @@ export function parseRandomizedFields(raw: unknown, captureId: string): readonly
             );
         }
         const obj = item as Record<string, unknown>;
-        const byteOffset = obj.byteOffset;
+        const byteOffset = obj["byteOffset"];
         if (typeof byteOffset !== "number" || byteOffset < 0) {
             throw new TestingError(
                 `Capture meta for ${captureId} randomizedFields[${i}].byteOffset invalid`,
             );
         }
-        const length = obj.length;
+        const length = obj["length"];
         if (typeof length !== "number" || length < 0) {
             throw new TestingError(
                 `Capture meta for ${captureId} randomizedFields[${i}].length invalid`,
             );
         }
-        const reason = obj.reason;
+        const reason = obj["reason"];
         if (reason !== "ephemeral_key" && reason !== "nonce" && reason !== "grease" && reason !== "random") {
             throw new TestingError(
                 `Capture meta for ${captureId} randomizedFields[${i}].reason invalid: ${String(reason)}`,
