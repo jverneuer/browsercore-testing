@@ -33,7 +33,22 @@ export * as categories from "./categories/index.js";
 // Randomized-field comparison (Cat 14 core) + capture manifest.
 export { compareBytesWithIgnore } from "./utils.js";
 export type { CaptureMeta, ComparisonResultWithIgnore, RandomizedField } from "./types.js";
-export { captures, type CaptureEntry } from "./captures/manifest.js";
+export type { CaptureEntry } from "./captures/manifest.js";
+
+/**
+ * Lazily load the golden-capture manifest.
+ *
+ * The manifest reads each `.bin` from disk, so it is NOT eagerly evaluated at
+ * import time (an eager re-export would force every consumer to pay the read
+ * cost — and crash if the tarball lacked `captures/`). Call this only when you
+ * actually need the captures.
+ */
+export async function loadCaptures(): Promise<
+    readonly import("./captures/manifest.js").CaptureEntry[]
+> {
+    const manifest = await import("./captures/manifest.js");
+    return manifest.captures;
+}
 
 // Pluggable layered reference provider.
 export {

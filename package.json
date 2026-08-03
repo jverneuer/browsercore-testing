@@ -1,6 +1,6 @@
 {
     "name": "@browsercore/testing",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "Protocol verification — RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
     "repository": {
         "type": "git",
@@ -22,6 +22,7 @@
     },
     "files": [
         "dist",
+        "captures",
         "LICENSE",
         "README.md"
     ],
