@@ -9,10 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 import { computeJa4 } from "../src/index.js";
-import {
-    computeJa4Fingerprint,
-    computeJa4h,
-} from "../src/fingerprint/ja4.js";
+import { computeJa4Fingerprint } from "../src/fingerprint/ja4.js";
+import { computeJa4h } from "../src/fingerprint/ja4h.js";
 
 /** JA4 tag shape: t{cc:02}{ee:02}{sni}{ver}{alpn} _ 12hex _ 12hex _ 12hex. */
 const JA4_TAG_RE = /^t\d{2}\d{2}[di]\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}_[a-z0-9]{12}$/;

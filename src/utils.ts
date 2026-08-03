@@ -12,9 +12,12 @@ import type {
  * Exhaustiveness check for `switch`/`if-else` over discriminated unions.
  * Call in the `default` branch: `default: assertNever(x)`.
  * Adding a new union member forces every handler to compile-error until handled.
+ *
+ * Returns `never` (always throws) so a `default: assertNever(x)` branch
+ * satisfies exhaustiveness without the caller needing a trailing `return`.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function assertNever(x: never): Error {
+export function assertNever(x: never): never {
     throw new Error(`Unexpected value: ${JSON.stringify(x)}`);
 }
 
