@@ -46,6 +46,12 @@ import {
  */
 export interface Ja4ClientHello {
     readonly tlsVersion: string;
+    /**
+     * Raw numeric `client_version` code parsed from the ClientHello (e.g.
+     * `0x0304` for TLS 1.3). Used by JA4_f so that byte-identical ClientHellos
+     * produce the same fingerprint regardless of TLS-record wrapping.
+     */
+    readonly versionCode: number;
     readonly sniPresent: boolean;
     readonly cipherSuites: readonly number[];
     readonly extensions: readonly number[];
@@ -185,6 +191,7 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
         // No extensions present.
         return {
             tlsVersion: tlsVersionLabel(versionCode),
+            versionCode,
             sniPresent: false,
             cipherSuites,
             extensions: [],
@@ -236,6 +243,7 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
 
     return {
         tlsVersion: tlsVersionLabel(versionCode),
+        versionCode,
         sniPresent,
         cipherSuites,
         extensions,
@@ -284,8 +292,13 @@ export function computeJa4Fingerprint(clientHello: Uint8Array): Ja4Fingerprint {
     const c = filteredExts.length > 0 ? sha256First12(filteredExts) : "000000000000";
 
     // JA4_f: raw fields — version, ciphers, extensions, supported groups, ec.
+    // Use the parsed client_version (`hello.versionCode`), NOT the first two
+    // bytes of the buffer: those are the TLS record header (0x16 0x03) for a
+    // record-wrapped hello and the handshake type byte (0x01 ...) for a bare
+    // hello, so a bare and a record-wrapped ClientHello that are otherwise
+    // byte-identical would otherwise hash differently.
     const raw = [
-        hex4(clientHello.length > 1 ? uint16(clientHello, 0) : 0),
+        hex4(hello.versionCode),
         hello.cipherSuites.map(hex4).join(""),
         hello.extensions.map(hex4).join(""),
         hello.supportedGroups.map(hex4).join(""),

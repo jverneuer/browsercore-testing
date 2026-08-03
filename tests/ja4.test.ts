@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { computeJa4 } from "../src/index.js";
-import { computeJa4Fingerprint } from "../src/fingerprint/ja4.js";
+import { computeJa4Fingerprint, parseJa4ClientHello } from "../src/fingerprint/ja4.js";
 import { computeJa4h } from "../src/fingerprint/ja4h.js";
 
 /** JA4 tag shape: t{cc:02}{ee:02}{sni}{ver}{alpn} _ 12hex _ 12hex _ 12hex. */
@@ -58,6 +58,19 @@ function richClientHello(): Uint8Array {
     ]);
 }
 
+/**
+ * Wrap a bare ClientHello (starts with handshake type 0x01) in a TLS record
+ * layer (ContentType 0x16 + version 0x0301 + 2-byte length).
+ */
+function wrapInRecord(bare: Uint8Array): Uint8Array {
+    return new Uint8Array([
+        0x16, 0x03, 0x01,
+        (bare.length >> 8) & 0xff,
+        bare.length & 0xff,
+        ...bare,
+    ]);
+}
+
 describe("computeJa4 (four-part JA4 TLS fingerprint)", () => {
     it("emits a well-formed canonical JA4 tag", () => {
         const tag = computeJa4(richClientHello());
@@ -84,6 +97,35 @@ describe("computeJa4 (four-part JA4 TLS fingerprint)", () => {
             expect(part).toMatch(/^[0-9a-f]{12}$/);
         }
         expect(`${a}_${b}_${c}_${f}`).toBe(computeJa4(richClientHello()));
+    });
+});
+
+describe("JA4_f — client_version, not record-header bytes", () => {
+    // Regression: JA4_f used to read uint16(buf, 0) — the first two bytes of
+    // the *buffer* — instead of the parsed client_version field. For a
+    // record-wrapped hello those bytes are 0x16 0x03 (record header); for a
+    // bare hello they are 0x01 <len> (handshake header). So two byte-identical
+    // ClientHellos produced DIFFERENT JA4_f. The fix uses the parsed
+    // versionCode so wrapping is irrelevant.
+    it("produces identical JA4_f (and full tag) for bare vs record-wrapped ClientHellos", () => {
+        const bare = richClientHello();
+        const wrapped = wrapInRecord(bare);
+
+        const bareFp = computeJa4Fingerprint(bare);
+        const wrappedFp = computeJa4Fingerprint(wrapped);
+
+        expect(wrappedFp.f).toBe(bareFp.f);
+        expect(wrappedFp.tag).toBe(bareFp.tag);
+    });
+
+    it("exposes the parsed client_version on Ja4ClientHello for both forms", () => {
+        // The fix relies on this surface: JA4_f hashes versionCode (0x0304),
+        // not the buffer's first two bytes (0x0100 bare / 0x1603 wrapped).
+        const bare = parseJa4ClientHello(richClientHello());
+        const wrapped = parseJa4ClientHello(wrapInRecord(richClientHello()));
+        expect(bare.versionCode).toBe(0x0304);
+        expect(wrapped.versionCode).toBe(0x0304);
+        expect(bare.versionCode).toBe(wrapped.versionCode);
     });
 });
 
