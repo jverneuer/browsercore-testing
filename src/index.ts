@@ -79,3 +79,43 @@ export {
     compareBytesOutcome,
 } from "./reference/node-reference.js";
 export type { CompareOutcome, HashAlgorithm } from "./reference/node-reference.js";
+
+// E2E TLS sink server — live handshake verification oracle (plan
+// docs/E2E_TEST_PLAN.md). The sink performs a real TLS 1.3 handshake and
+// returns the raw ClientHello bytes it saw on the wire, plus parsed handshake
+// inspection (protocol, cipher, ALPN, SNI). Reusable by any package that
+// wants to verify its TLS stack against a real server.
+export { TlsSinkServer } from "./e2e/sink-server.js";
+export type { ClientHelloCapture, HandshakeResult } from "./e2e/sink-server.js";
+
+// Self-signed ECDSA P-256 certificate generator (runtime, no openssl).
+export { generateSelfSignedCert } from "./e2e/cert-gen.js";
+export type { SelfSignedCert } from "./e2e/cert-gen.js";
+
+// Minimal ClientHello wire parser — structural assertions for the e2e matrix.
+// (Distinct from the JA3 `parseClientHello` re-exported from fingerprint.)
+// Note: `parseClientHello` is intentionally NOT re-exported here to avoid
+// colliding with the JA3 `parseClientHello` from ./fingerprint/index.js.
+// Consumers of the e2e parser import it directly from ./e2e/parse-clienthello.js.
+export {
+    parseClientHelloWire,
+    peekRecordHeader,
+    findExtension,
+    parseSniHostname,
+    parseAlpnProtocols,
+    parseSupportedVersions,
+    decodeSni,
+    decodeAlpn,
+    decodeSupportedVersions,
+    isGrease,
+    nonGreaseCipherSuites,
+    nonGreaseExtensionTypes,
+    EXT,
+    GREASE_SENTINELS,
+    ClientHelloParseError,
+} from "./e2e/parse-clienthello.js";
+export type {
+    ParsedClientHello,
+    ParsedExtension,
+    ExtensionTypeValue,
+} from "./e2e/parse-clienthello.js";
