@@ -9,6 +9,8 @@ export { loadGolden, compareAgainstGolden } from "./golden/golden.js";
 export { runTlsCompliance, runHttp2Compliance, runHttp1Compliance } from "./rfc/rfcTests.js";
 export { benchmarkTlsHandshake, benchmarkHttp2Request } from "./bench/bench.js";
 
+import type { CaptureEntry } from "./captures/manifest.js";
+
 export { GoldenMismatchError, TestingError } from "./errors.js";
 
 export type {
@@ -43,9 +45,7 @@ export type { CaptureEntry } from "./captures/manifest.js";
  * cost — and crash if the tarball lacked `captures/`). Call this only when you
  * actually need the captures.
  */
-export async function loadCaptures(): Promise<
-    readonly import("./captures/manifest.js").CaptureEntry[]
-> {
+export async function loadCaptures(): Promise<readonly CaptureEntry[]> {
     const manifest = await import("./captures/manifest.js");
     return manifest.captures;
 }
