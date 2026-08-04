@@ -1,210 +1,357 @@
 /**
- * Minimal ClientHello parser for e2e assertions.
+ * Minimal TLS 1.2+ ClientHello parser for the E2E TLS sink server.
  *
- * Parses the ClientHello *handshake message* (the output of
- * `@browsercore/tls` `buildClientHello`, or the handshake layer captured by a
- * sink server) into the structural fields the e2e suite asserts on:
- *   - offered cipher suites (IANA 2-byte codes, in wire order)
- *   - extension type list (in wire order, with raw data per extension)
- *   - legacy version, session id, compression methods
+ * Parses the wire bytes a sink captured *before* TLS parsing, exposing the
+ * fields the e2e test matrix (T2–T9 in the plan) asserts on: cipher suites,
+ * extension types / order, ALPN protocols, SNI hostname, supported_versions.
  *
- * The parser understands both the bare handshake message (first byte 0x01) and
- * the TLS record-wrapped form (first byte 0x16). It does NOT validate crypto —
- * it only deserializes layout, so it is a pure function of the input bytes.
+ * The parser is intentionally lenient about trailing data — it reads only the
+ * ClientHello body and stops. It does NOT validate cryptographic integrity;
+ * that is the handshake's job. All offsets are computed dynamically from the
+ * parsed structure (never hardcoded) so the same code works whether the input
+ * is a bare handshake message or a full TLS record (the caller strips the
+ * 5-byte record header via {@link parseClientHello}).
+ *
+ * This module merges the original minimal parser (shipped on `main`) with the
+ * E2E TLS sink server infrastructure (from `feat/e2e-sink`): the `EXT` constant
+ * table, `ClientHelloParseError`, richer offset/length metadata on
+ * {@link ParsedClientHello}, and GREASE utilities from the sink branch are
+ * retained alongside the `decodeSni`, `decodeAlpn`, `decodeSupportedVersions`
+ * accessors from `main`.
  */
 
-/** A parsed TLS extension: type code + opaque data (the body, no type/len prefix). */
+// --- Parsed types -------------------------------------------------------
+
+/** A single parsed extension: type wire value + raw data bytes. */
 export interface ParsedExtension {
-    /** Extension type (IANA code, e.g. 0x0000 for SNI, 0x002b for supported_versions). */
+    /** Extension type (IANA wire value, e.g. 0x0000 for SNI). */
     readonly type: number;
-    /** Extension body (everything after the 4-byte type||len prefix). */
+    /** Length of `data` on the wire (excludes type + length prefix). */
+    readonly length: number;
+    /** Raw extension data (empty for zero-length extensions). */
     readonly data: Uint8Array;
 }
 
-/** A parsed ClientHello handshake message. */
+/**
+ * Fully parsed ClientHello.
+ *
+ * Byte offsets are captured so tests can map a field back to its wire position
+ * when reporting divergence (without hardcoding offsets). `cipherSuites` and
+ * `compressionMethods` are exposed as flat numeric arrays for direct
+ * iteration / `.filter()` / `.some()` consumption (see the e2e ClientHello
+ * suite on `main`).
+ */
 export interface ParsedClientHello {
-    /** Legacy protocol version (uint16, always 0x0303 for TLS 1.3 ClientHellos). */
+    /** Starting offset of the handshake type byte within the input. */
+    readonly handshakeTypeOffset: number;
+    /** Handshake type — always 0x01 (ClientHello). */
+    readonly handshakeType: number;
+    /** Handshake body length (24-bit). */
+    readonly handshakeLength: number;
+    /** Legacy protocol version (usually 0x0303). */
     readonly legacyVersion: number;
-    /** client_random (32 bytes). */
+    /** 32-byte client random. */
     readonly random: Uint8Array;
-    /** Session ID (variable length, often empty for TLS 1.3). */
+    /** Session ID (empty when not resuming). */
     readonly sessionId: Uint8Array;
-    /** Offered cipher suites as IANA 2-byte codes, in wire order. */
+    /** Offered cipher suites as IANA 2-byte codes, in wire order (including GREASE). */
     readonly cipherSuites: readonly number[];
     /** Compression methods (variable length, usually [0x00]). */
     readonly compressionMethods: readonly number[];
-    /** Extensions in wire order. */
+    /** Extensions in wire order. Empty if the client sent none. */
     readonly extensions: readonly ParsedExtension[];
+    /** Total bytes consumed from the input (handshake type + length + body). */
+    readonly totalLength: number;
 }
 
-/** Read a big-endian uint16 at `offset` in `buf`. Throws if out of bounds. */
-function uint16(buf: Uint8Array, offset: number): number {
-    const hi = buf[offset];
-    const lo = buf[offset + 1];
-    if (hi === undefined || lo === undefined) {
-        throw new RangeError(`uint16 read out of bounds at offset ${offset}`);
+// --- Extension-type constants (IANA) ------------------------------------
+
+export const EXT = {
+    SERVER_NAME: 0x0000,
+    SUPPORTED_VERSIONS: 0x002b,
+    APPLICATION_LAYER_PROTOCOL_NEGOTIATION: 0x0010,
+    KEY_SHARE: 0x0033,
+    SUPPORTED_GROUPS: 0x000a,
+    PSK_KEY_EXCHANGE_MODES: 0x002d,
+    SIGNATURE_ALGORITHMS: 0x000d,
+} as const;
+export type ExtensionTypeValue = (typeof EXT)[keyof typeof EXT];
+
+// --- Errors -------------------------------------------------------------
+
+/** Thrown when the input is too short to be a valid ClientHello. */
+export class ClientHelloParseError extends Error {
+    public readonly kind = "ClientHelloParseError" as const;
+    public readonly byteOffset: number;
+    public override readonly cause: Error | undefined;
+
+    constructor(message: string, byteOffset: number, options?: { cause?: Error }) {
+        super(message, options);
+        this.name = "ClientHelloParseError";
+        this.byteOffset = byteOffset;
+        this.cause = options?.cause;
     }
-    return (hi << 8) | lo;
 }
 
-/** Read a 24-bit big-endian integer at `offset` in `buf`. */
-function uint24(buf: Uint8Array, offset: number): number {
-    const b0 = buf[offset];
-    const b1 = buf[offset + 1];
-    const b2 = buf[offset + 2];
-    if (b0 === undefined || b1 === undefined || b2 === undefined) {
-        throw new RangeError(`uint24 read out of bounds at offset ${offset}`);
-    }
-    return (b0 << 16) | (b1 << 8) | b2;
+// --- Parser helpers -----------------------------------------------------
+
+/** Read a big-endian uint16 at `offset`. */
+function readUint16(buf: Uint8Array, offset: number): number {
+    return (buf[offset]! << 8) | buf[offset + 1]!;
 }
 
 /**
- * Parse a ClientHello handshake message into structured fields.
+ * Parse a TLS record header. Returns the offset of the handshake message that
+ * follows (i.e. 5 for a well-formed record) or `null` if the input does not
+ * start with a Handshake record (content type 0x16).
  *
- * Accepts either:
- *   - a TLS record (ContentType handshake 0x16) wrapping the handshake, or
- *   - a bare handshake message (handshake type 0x01).
- *
- * Throws {@link RangeError} on truncated input.
+ * Callers that already stripped the record header can pass the raw handshake
+ * message directly to {@link parseClientHello}.
  */
-export function parseClientHello(bytes: Uint8Array): ParsedClientHello {
-    let pos: number;
-    let handshakeLen: number;
+export function peekRecordHeader(buf: Uint8Array): number | null {
+    if (buf.length < 5) return null;
+    const contentType = buf[0]!;
+    if (contentType !== 0x16) return null; // Not a Handshake record.
+    // Bytes 1-2: record version (0x0303). Bytes 3-4: fragment length.
+    return 5;
+}
 
-    const first = bytes[0];
-    if (first === undefined) {
-        throw new RangeError("empty ClientHello buffer");
+/**
+ * Parse a ClientHello from raw wire bytes.
+ *
+ * Accepts either a full TLS Handshake record (5-byte header + handshake
+ * message) or a bare handshake message (type + 24-bit length + body). The
+ * function auto-detects the record header by content type.
+ *
+ * Distinct from the JA3 `parseClientHello` in `@browsercore/testing`'s
+ * fingerprint module (which returns JA3 segments). This parser returns the
+ * full structural breakdown (cipher suites, extensions, SNI, ALPN, etc.) for
+ * the e2e test matrix.
+ *
+ * @param buf Raw bytes as seen on the wire.
+ * @throws {ClientHelloParseError} if the input is malformed or truncated.
+ */
+export function parseClientHello(buf: Uint8Array): ParsedClientHello {
+    let o = 0;
+    const recordOffset = peekRecordHeader(buf);
+    if (recordOffset !== null) {
+        o = recordOffset; // skip 5-byte record header.
     }
 
-    if (first === 0x16) {
-        // TLS record wrapper: type(1) || version(2) || length(2) || handshake...
-        if (bytes.length < 5) {
-            throw new RangeError(`TLS record too short: ${bytes.length} < 5`);
-        }
-        pos = 5;
-        const handshakeType = bytes[pos];
-        if (handshakeType !== 0x01) {
-            throw new RangeError(
-                `expected ClientHello (0x01) inside TLS record, got 0x${(handshakeType ?? 0).toString(16)}`,
-            );
-        }
-        handshakeLen = uint24(bytes, pos + 1);
-        pos += 4; // skip handshake type(1) + length(3)
-    } else if (first === 0x01) {
-        // Bare handshake message.
-        handshakeLen = uint24(bytes, 1);
-        pos = 4;
-    } else {
-        throw new RangeError(
-            `not a TLS record or ClientHello: first byte 0x${first.toString(16)}`,
+    const start = o;
+    if (o + 4 > buf.length) {
+        throw new ClientHelloParseError(
+            `ClientHello truncated at handshake header (need 4 bytes at offset ${o}, have ${buf.length - o})`,
+            o,
         );
     }
 
-    const end = pos + handshakeLen;
-    if (end > bytes.length) {
-        throw new RangeError(`handshake length ${handshakeLen} exceeds buffer ${bytes.length - pos}`);
+    const handshakeType = buf[o]!;
+    if (handshakeType !== 0x01) {
+        throw new ClientHelloParseError(
+            `Expected handshake type 0x01 (ClientHello), got 0x${handshakeType.toString(16).padStart(2, "0")}`,
+            o,
+        );
+    }
+    const handshakeLength = (buf[o + 1]! << 16) | (buf[o + 2]! << 8) | buf[o + 3]!;
+    o += 4;
+
+    const bodyEnd = o + handshakeLength;
+    if (bodyEnd > buf.length) {
+        throw new ClientHelloParseError(
+            `ClientHello body truncated (need ${handshakeLength} bytes, have ${buf.length - o})`,
+            o,
+        );
     }
 
-    // legacy_version(2) + random(32)
-    if (pos + 34 > end) {
-        throw new RangeError("ClientHello truncated before random");
+    // legacy_version (2) + random (32).
+    if (o + 34 > bodyEnd) {
+        throw new ClientHelloParseError("ClientHello too short for legacy_version + random", o);
     }
-    const legacyVersion = uint16(bytes, pos);
-    pos += 2;
-    const random = bytes.subarray(pos, pos + 32);
-    pos += 32;
+    const legacyVersion = readUint16(buf, o);
+    o += 2;
+    const random = buf.subarray(o, o + 32);
+    o += 32;
 
-    // session_id: length(1) + id
-    const sessionIdLen = bytes[pos];
-    if (sessionIdLen === undefined) {
-        throw new RangeError("ClientHello truncated at session id length");
+    // session_id: length-prefixed.
+    const sessionIdLen = buf[o]!;
+    o += 1;
+    if (o + sessionIdLen > bodyEnd) {
+        throw new ClientHelloParseError("session_id extends past ClientHello body", o);
     }
-    pos += 1;
-    const sessionId = bytes.subarray(pos, pos + sessionIdLen);
-    pos += sessionIdLen;
+    const sessionId = buf.subarray(o, o + sessionIdLen);
+    o += sessionIdLen;
 
-    // cipher_suites: length(2) || suites
-    if (pos + 2 > end) {
-        throw new RangeError("ClientHello truncated at cipher suites length");
+    // cipher_suites: 2-byte length prefix + (len/2) suites.
+    if (o + 2 > bodyEnd) {
+        throw new ClientHelloParseError("cipher_suites length truncated", o);
     }
-    const cipherSuitesLen = uint16(bytes, pos);
-    pos += 2;
-    if (pos + cipherSuitesLen > end) {
-        throw new RangeError("ClientHello truncated in cipher suites");
+    const csLen = readUint16(buf, o);
+    o += 2;
+    if (o + csLen > bodyEnd || csLen % 2 !== 0) {
+        throw new ClientHelloParseError("cipher_suites body truncated or odd length", o);
     }
-    const cipherSuites: number[] = [];
-    for (let i = 0; i < cipherSuitesLen; i += 2) {
-        cipherSuites.push(uint16(bytes, pos + i));
+    const suites: number[] = [];
+    for (let i = 0; i < csLen; i += 2) {
+        suites.push(readUint16(buf, o + i));
     }
-    pos += cipherSuitesLen;
+    o += csLen;
 
-    // compression_methods: length(1) || methods
-    const compLen = bytes[pos];
-    if (compLen === undefined) {
-        throw new RangeError("ClientHello truncated at compression methods length");
+    // compression_methods: 1-byte length prefix + methods.
+    const compLen = buf[o]!;
+    o += 1;
+    if (o + compLen > bodyEnd) {
+        throw new ClientHelloParseError("compression_methods truncated", o);
     }
-    pos += 1;
-    const compressionMethods: number[] = [];
+    const methods: number[] = [];
     for (let i = 0; i < compLen; i++) {
-        const m = bytes[pos + i];
-        if (m === undefined) {
-            throw new RangeError("ClientHello truncated in compression methods");
-        }
-        compressionMethods.push(m);
+        methods.push(buf[o + i]!);
     }
-    pos += compLen;
+    o += compLen;
 
-    // extensions: length(2) || extensions
+    // extensions: 2-byte length prefix + extension list (may be absent).
     const extensions: ParsedExtension[] = [];
-    if (pos + 2 <= end) {
-        const extensionsLen = uint16(bytes, pos);
-        pos += 2;
-        const extEnd = pos + extensionsLen;
-        if (extEnd > end) {
-            throw new RangeError("ClientHello truncated in extensions block");
+    if (o + 2 <= bodyEnd) {
+        const extLen = readUint16(buf, o);
+        o += 2;
+        const extEnd = o + extLen;
+        if (extEnd > bodyEnd) {
+            throw new ClientHelloParseError("extensions block truncated", o);
         }
-        while (pos < extEnd) {
-            if (pos + 4 > extEnd) {
-                throw new RangeError("ClientHello extension header truncated");
+        while (o + 4 <= extEnd) {
+            const extType = readUint16(buf, o);
+            const extLen2 = readUint16(buf, o + 2);
+            o += 4;
+            if (o + extLen2 > extEnd) {
+                throw new ClientHelloParseError(
+                    `extension 0x${extType.toString(16).padStart(4, "0")} data truncated`,
+                    o,
+                );
             }
-            const type = uint16(bytes, pos);
-            const dataLen = uint16(bytes, pos + 2);
-            pos += 4;
-            if (pos + dataLen > extEnd) {
-                throw new RangeError(`ClientHello extension 0x${type.toString(16)} data truncated`);
-            }
-            const data = bytes.subarray(pos, pos + dataLen);
-            pos += dataLen;
-            extensions.push({ type, data });
+            extensions.push({ type: extType, length: extLen2, data: buf.subarray(o, o + extLen2) });
+            o += extLen2;
         }
+        o = extEnd;
     }
+
+    void o; // body fully consumed; trailing bytes (next record) ignored.
 
     return {
+        handshakeTypeOffset: start,
+        handshakeType,
+        handshakeLength,
         legacyVersion,
         random,
         sessionId,
-        cipherSuites,
-        compressionMethods,
+        cipherSuites: suites,
+        compressionMethods: methods,
         extensions,
+        totalLength: bodyEnd - start,
     };
 }
 
 /**
- * Find the first extension of a given type in a parsed ClientHello.
- * Returns undefined if absent.
+ * Wire-compatible alias of {@link parseClientHello}. Exported for callers that
+ * prefer the `parseClientHelloWire` name used by the E2E TLS sink server.
+ */
+export const parseClientHelloWire = parseClientHello;
+
+// --- Extension accessors ------------------------------------------------
+
+/**
+ * Find the first extension of the given type. Returns `undefined` if absent.
  */
 export function findExtension(
     hello: ParsedClientHello,
     type: number,
 ): ParsedExtension | undefined {
-    return hello.extensions.find((ext) => ext.type === type);
+    return hello.extensions.find((e) => e.type === type);
 }
+
+// --- parse* accessors (feat/e2e-sink naming) ----------------------------
+
+/**
+ * Parse the SNI extension (type 0x0000) and return the first hostname.
+ *
+ * Layout: server_name_list_len(2) + entries. Each entry: name_type(1) +
+ * name_len(2) + name. name_type 0 = host_name.
+ */
+export function parseSniHostname(hello: ParsedClientHello): string | null {
+    const ext = findExtension(hello, EXT.SERVER_NAME);
+    if (ext === undefined || ext.data.length < 3) return null;
+    let o = 0;
+    const listLen = readUint16(ext.data, o);
+    o += 2;
+    void listLen;
+    while (o + 3 <= ext.data.length) {
+        const nameType = ext.data[o]!;
+        const nameLen = readUint16(ext.data, o + 1);
+        o += 3;
+        if (o + nameLen > ext.data.length) return null;
+        if (nameType === 0) {
+            return new TextDecoder().decode(ext.data.subarray(o, o + nameLen));
+        }
+        o += nameLen;
+    }
+    return null;
+}
+
+/**
+ * Parse the ALPN extension (type 0x0010) and return the offered protocols in
+ * wire order.
+ *
+ * Layout: protocol_list_len(2) + entries. Each entry: name_len(1) + name.
+ */
+export function parseAlpnProtocols(hello: ParsedClientHello): readonly string[] {
+    const ext = findExtension(hello, EXT.APPLICATION_LAYER_PROTOCOL_NEGOTIATION);
+    if (ext === undefined || ext.data.length < 1) return [];
+    let o = 0;
+    const listLen = readUint16(ext.data, o);
+    o += 2;
+    void listLen;
+    const protocols: string[] = [];
+    while (o + 1 <= ext.data.length) {
+        const nameLen = ext.data[o]!;
+        o += 1;
+        if (o + nameLen > ext.data.length) break;
+        protocols.push(new TextDecoder().decode(ext.data.subarray(o, o + nameLen)));
+        o += nameLen;
+    }
+    return protocols;
+}
+
+/**
+ * Parse the supported_versions extension (type 0x002b) and return the offered
+ * versions in wire order.
+ *
+ * RFC 8446 §4.2.1.1: the client body is a 1-byte length-prefixed list of
+ * uint16 wire versions (`versions<2..254>`). The length byte counts the
+ * number of *bytes* of version data (always even), so the number of versions
+ * is `length / 2`.
+ */
+export function parseSupportedVersions(hello: ParsedClientHello): readonly number[] {
+    const ext = findExtension(hello, EXT.SUPPORTED_VERSIONS);
+    if (ext === undefined || ext.data.length < 1) return [];
+    const versionsLen = ext.data[0]!;
+    const versions: number[] = [];
+    let o = 1;
+    while (o + 2 <= 1 + versionsLen && o + 2 <= ext.data.length) {
+        versions.push(readUint16(ext.data, o));
+        o += 2;
+    }
+    return versions;
+}
+
+// --- decode* accessors (main branch naming) -----------------------------
 
 /**
  * Decode the SNI server_name_list (extension 0x0000) into hostnames.
  *
  * RFC 6066 §3: server_name_list = length(2) || entries, each entry =
  * name_type(1) || length(2) || name. We only handle name_type=0 (host_name).
+ *
+ * Returns all hostnames in the list. Use {@link parseSniHostname} for the
+ * first one only.
  */
 export function decodeSni(hello: ParsedClientHello): readonly string[] {
     const ext = findExtension(hello, 0x0000);
@@ -213,12 +360,12 @@ export function decodeSni(hello: ParsedClientHello): readonly string[] {
     }
     const names: string[] = [];
     let pos = 0;
-    const listLen = uint16(ext.data, pos);
+    const listLen = readUint16(ext.data, pos);
     pos += 2;
     const end = pos + listLen;
     while (pos + 3 <= end) {
         const nameType = ext.data[pos]!;
-        const nameLen = uint16(ext.data, pos + 1);
+        const nameLen = readUint16(ext.data, pos + 1);
         pos += 3;
         if (pos + nameLen > end) {
             break;
@@ -237,54 +384,48 @@ export function decodeSni(hello: ParsedClientHello): readonly string[] {
  *
  * RFC 8446 §4.2.1: the client body is a length-prefixed list of uint16 wire
  * versions. Returns the versions in wire order.
+ *
+ * Compatible alias of {@link parseSupportedVersions}.
  */
 export function decodeSupportedVersions(hello: ParsedClientHello): readonly number[] {
-    const ext = findExtension(hello, 0x002b);
-    if (ext === undefined || ext.data.length < 1) {
-        return [];
-    }
-    const versions: number[] = [];
-    const listLen = ext.data[0];
-    if (listLen === undefined) {
-        return [];
-    }
-    let pos = 1;
-    for (let i = 0; i < listLen; i += 2) {
-        if (pos + 1 >= ext.data.length) {
-            break;
-        }
-        versions.push(uint16(ext.data, pos));
-        pos += 2;
-    }
-    return versions;
+    return parseSupportedVersions(hello);
 }
 
 /**
  * Decode the ALPN extension (0x0010) into the offered protocol names.
  *
  * RFC 7301: the body is a length-prefixed list of length-prefixed UTF-8 names.
+ *
+ * Compatible alias of {@link parseAlpnProtocols}.
  */
 export function decodeAlpn(hello: ParsedClientHello): readonly string[] {
-    const ext = findExtension(hello, 0x0010);
-    if (ext === undefined || ext.data.length < 2) {
-        return [];
-    }
-    const protocols: string[] = [];
-    let pos = 0;
-    const listLen = uint16(ext.data, pos);
-    pos += 2;
-    const end = pos + listLen;
-    while (pos < end) {
-        const protoLen = ext.data[pos];
-        if (protoLen === undefined) {
-            break;
-        }
-        pos += 1;
-        if (pos + protoLen > end) {
-            break;
-        }
-        protocols.push(new TextDecoder().decode(ext.data.subarray(pos, pos + protoLen)));
-        pos += protoLen;
-    }
-    return protocols;
+    return parseAlpnProtocols(hello);
+}
+
+// --- GREASE sentinel detection ------------------------------------------
+
+/**
+ * The 16 GREASE sentinel values per RFC 8701: both bytes identical, low nibble
+ * 0xA. Used to detect / strip GREASE from cipher + extension assertions.
+ */
+export const GREASE_SENTINELS: readonly number[] = [
+    0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a,
+    0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa,
+];
+
+const GREASE_SET = new Set<number>(GREASE_SENTINELS);
+
+/** True if the given 16-bit wire value is a GREASE sentinel. */
+export function isGrease(value: number): boolean {
+    return GREASE_SET.has(value);
+}
+
+/** Return the cipher suites with GREASE sentinels removed. */
+export function nonGreaseCipherSuites(hello: ParsedClientHello): readonly number[] {
+    return hello.cipherSuites.filter((s) => !isGrease(s));
+}
+
+/** Return the extension types with GREASE sentinels removed. */
+export function nonGreaseExtensionTypes(hello: ParsedClientHello): readonly number[] {
+    return hello.extensions.filter((e) => !isGrease(e.type)).map((e) => e.type);
 }
