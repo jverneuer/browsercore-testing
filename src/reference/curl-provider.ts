@@ -13,7 +13,7 @@
 
 import {
     execFile,
-    type ExecFileException,
+    type ExecException,
     type ExecFileOptionsWithStringEncoding,
 } from "node:child_process";
 import type { ProfileId } from "@browsercore/profiles";
@@ -42,7 +42,7 @@ interface ExecResult {
  * Wraps node:child_process `execFile` with a `Promise` rather than
  * `util.promisify` so the types resolve without forcing casts — `execFile`'s
  * overloads return `ChildProcess`, which `promisify` cannot infer a useful
- * promise type from. Rejects with an `ExecFileException`-shaped `Error` on
+ * promise type from. Rejects with an `ExecException`-shaped `Error` on
  * non-zero exit, timeout, or spawn failure.
  */
 function runExecFile(
@@ -51,14 +51,23 @@ function runExecFile(
     options: ExecFileOptionsWithStringEncoding,
 ): Promise<ExecResult> {
     return new Promise((resolve, reject) => {
-        execFile(command, args, options, (err: ExecFileException | null, stdout, stderr) => {
+        execFile(command, args, options, (err: ExecException | null, stdout, stderr) => {
             if (err !== null) {
-                reject(err);
+                reject(wrapExecError(err));
                 return;
             }
             resolve({ stdout, stderr });
         });
     });
+}
+
+/**
+ * Narrow an `ExecException | null` rejection into a concrete `Error` for
+ * `Promise.reject`. The callback parameter's union type does not narrow for
+ * some lint rules, so we re-check locally and return a known `Error` here.
+ */
+function wrapExecError(err: ExecException | null): Error {
+    return err instanceof Error ? err : new Error(JSON.stringify(err));
 }
 
 /**

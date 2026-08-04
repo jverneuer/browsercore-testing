@@ -222,18 +222,12 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
 
         if (extType === EXT_SNI) {
             sniPresent = true;
-        } else if (extType === EXT_SUPPORTED_GROUPS) {
-            if (extLen >= 4) {
-                supportedGroups.push(...readSupportedGroups(clientHello, pos));
-            }
-        } else if (extType === EXT_EC_POINT_FORMATS) {
-            if (extLen >= 1) {
-                ecPointFormats.push(...readEcPointFormats(clientHello, pos));
-            }
-        } else if (extType === EXT_ALPN) {
-            if (extLen >= 2) {
-                alpnRaw = readAlpnProtocols(clientHello, pos);
-            }
+        } else if (extType === EXT_SUPPORTED_GROUPS && extLen >= 4) {
+            supportedGroups.push(...readSupportedGroups(clientHello, pos));
+        } else if (extType === EXT_EC_POINT_FORMATS && extLen >= 1) {
+            ecPointFormats.push(...readEcPointFormats(clientHello, pos));
+        } else if (extType === EXT_ALPN && extLen >= 2) {
+            alpnRaw = readAlpnProtocols(clientHello, pos);
         }
         // EXT_SUPPORTED_VERSIONS: JA4 uses the highest supported version from
         // this extension — no parsing needed here.
