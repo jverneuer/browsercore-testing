@@ -1,0 +1,9 @@
+{
+    "source": "curl-impersonate",
+    "profile": "firefox-133",
+    "protocol": "http2",
+    "record": "settings",
+    "description": "First HTTP/2 SETTINGS frame sent by curl-impersonate firefox133. HTTP/2 SETTINGS are not randomized, so the ignore-list is empty.",
+    "randomizedFields": [],
+    "createdAt": "2026-08-04T00:28:49Z"
+}
