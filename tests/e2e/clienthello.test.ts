@@ -327,7 +327,7 @@ describe.each(PROFILES)("ClientHello e2e — %s", (profileId: ProfileId) => {
         }
 
         // Every suite is a known IANA TLS 1.3 or 1.2 code. We accept the full
-        // set of codes the profiles package maps (TLS 1.3 + ECDHE + RSA suites).
+        // set of codes the profiles package maps (TLS 1.3 + ECDHE + RSA + 3DES suites).
         const knownSuites = new Set<number>([
             // TLS 1.3
             0x1301, 0x1302, 0x1303, 0x1304,
@@ -336,6 +336,8 @@ describe.each(PROFILES)("ClientHello e2e — %s", (profileId: ProfileId) => {
             0xc023, 0xc024, 0xc027, 0xc028,
             // TLS 1.2 RSA
             0x009c, 0x009d, 0x002f, 0x0035, 0x003c, 0x003d,
+            // TLS 1.2 3DES (deprecated but advertised by Safari for legacy compat)
+            0xc008, 0xc012, 0x000a,
         ]);
         for (const suite of suites) {
             if (isGreaseValue(suite)) {
