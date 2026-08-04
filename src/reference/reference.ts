@@ -28,10 +28,8 @@ import type {
     ReferenceProvider,
     ReferenceProviderKind,
 } from "./reference-types.js";
-import type { CurlImpersonateOptions } from "./curl-provider.js";
-import type { RealBrowserOptions } from "./browser-provider.js";
-import { CurlImpersonateProvider } from "./curl-provider.js";
-import { RealBrowserCaptureProvider } from "./browser-provider.js";
+import { CurlImpersonateProvider, type CurlImpersonateOptions } from "./curl-provider.js";
+import { RealBrowserCaptureProvider, type RealBrowserOptions } from "./browser-provider.js";
 import { ReferenceError } from "./reference-errors.js";
 import { assertNever } from "../utils.js";
 
@@ -158,7 +156,7 @@ export function createReferenceProvider(
         default:
             // Exhaustiveness guaranteed by the union — unreachable unless a new
             // provider kind is added without a handler.
-            assertNever(kind);
+            return assertNever(kind);
     }
 }
 
@@ -175,9 +173,9 @@ function toCurlOptions(
     if (options === undefined || !("command" in options) || options.command === undefined) {
         return undefined;
     }
-    return options.extraArgs !== undefined
-        ? { command: options.command, extraArgs: options.extraArgs }
-        : { command: options.command };
+    return options.extraArgs === undefined
+        ? { command: options.command }
+        : { command: options.command, extraArgs: options.extraArgs };
 }
 
 /**
