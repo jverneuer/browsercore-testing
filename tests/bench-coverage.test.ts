@@ -57,3 +57,17 @@ describe("benchmarkHttp2Request — percentile edge cases", () => {
         expect(stats.iterations).toBe(1);
     });
 });
+
+describe("percentile — empty-array branch (bench.ts line 62)", () => {
+    it("returns zero percentiles when the timings array is empty", () => {
+        // Math.max(1, NaN) === NaN. The for loop in measure() does not execute
+        // when iterations is NaN (0 < NaN is false), so measure() returns an
+        // empty array. percentile() then takes its `sorted.length === 0`
+        // early-return branch (bench.ts line 62) and returns 0 for all three
+        // percentiles.
+        const stats = benchmarkTlsHandshake(NaN);
+        expect(stats.p50).toBe(0);
+        expect(stats.p95).toBe(0);
+        expect(stats.p99).toBe(0);
+    });
+});

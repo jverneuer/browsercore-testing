@@ -292,6 +292,36 @@ describe("parseSniHostname", () => {
         const parsed = parseClientHello(hello);
         expect(parseSniHostname(parsed)).toBe("example.com");
     });
+
+    it("returns null when SNI has only non-hostname entries (lines 294-296)", () => {
+        // SNI list with two entries, both name_type=1 (not host_name). The loop
+        // skips each via `o += nameLen` (line 294) and exits to `return null`
+        // (line 296) without finding name_type === 0.
+        const entry1 = new Uint8Array([0x01, 0x00, 0x03, 0x61, 0x62, 0x63]); // name_type=1, "abc"
+        const entry2 = new Uint8Array([0x01, 0x00, 0x03, 0x78, 0x79, 0x7a]); // name_type=1, "xyz"
+        const listContent = new Uint8Array([...entry1, ...entry2]);
+        const list = new Uint8Array([
+            (listContent.length >> 8) & 0xff,
+            listContent.length & 0xff,
+            ...listContent,
+        ]);
+        const sniExt = ext(EXT.SERVER_NAME, list);
+        const hello = bareClientHello([0x1301], [sniExt]);
+        const parsed = parseClientHello(hello);
+        expect(parseSniHostname(parsed)).toBeNull();
+    });
+});
+
+// --- decodeSni: no-extension branch (line 359) ----------------------------
+
+describe("decodeSni — no SNI extension (line 359)", () => {
+    it("returns [] when there is no SNI extension at all", () => {
+        // findExtension returns undefined → the `ext === undefined` branch
+        // (line 358) fires and decodeSni returns [] without parsing any data.
+        const hello = bareClientHello([0x1301], []);
+        const parsed = parseClientHello(hello);
+        expect(decodeSni(parsed)).toEqual([]);
+    });
 });
 
 // --- parseAlpnProtocols -------------------------------------------------
