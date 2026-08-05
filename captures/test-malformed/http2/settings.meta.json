@@ -1,0 +1,9 @@
+{
+    "source": "curl-impersonate",
+    "profile": "test-malformed",
+    "protocol": "http2",
+    "record": "settings",
+    "description": "Malformed SETTINGS capture for testing (too short).",
+    "randomizedFields": [],
+    "createdAt": "2026-08-05T00:00:00Z"
+}
