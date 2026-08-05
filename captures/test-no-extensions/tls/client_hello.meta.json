@@ -1,0 +1,9 @@
+{
+  "source": "curl-impersonate",
+  "profile": "test-no-extensions",
+  "protocol": "tls",
+  "record": "client_hello",
+  "description": "Minimal ClientHello with no extensions for testing.",
+  "randomizedFields": [],
+  "createdAt": "2026-08-05T00:00:00Z"
+}

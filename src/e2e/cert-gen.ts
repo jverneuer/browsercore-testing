@@ -76,7 +76,7 @@ function derUtf8String(bytes: Uint8Array): Uint8Array {
 function derGeneralizedTime(text: string): Uint8Array {
     return derTagged(0x18, new TextEncoder().encode(text));
 }
-function derOid(oid: string): Uint8Array {
+export function derOid(oid: string): Uint8Array {
     const parts = oid.split(".").map((p) => Number.parseInt(p, 10));
     const first = parts[0]! * 40 + parts[1]!;
     const rest: number[] = [];

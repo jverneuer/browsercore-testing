@@ -57,7 +57,7 @@ function measure(iterations: number, fn: () => void): number[] {
 }
 
 /** Read a percentile (0..1) from a sorted array of samples. */
-function percentile(sorted: number[], p: number): number {
+export function percentile(sorted: number[], p: number): number {
     if (sorted.length === 0) {
         return 0;
     }
