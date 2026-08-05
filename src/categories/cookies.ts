@@ -101,9 +101,6 @@ describe(CATEGORY_ID, () => {
         // A cookie set for example.com must NOT match evil.com.
         const cookie = parseSetCookieHeader("session=abc; Domain=example.com", url("example.com", "/"));
         expect(cookie).not.toBeNull();
-        if (cookie === null) {
-            expect.unreachable("cookie parsed as non-null");
-        }
         const evilUrl = url("evil.com", "/");
         const result = cookieMatchesUrl(cookie as Cookie, evilUrl);
         expect(result.matched).toBe(false);
@@ -113,9 +110,6 @@ describe(CATEGORY_ID, () => {
     it("matches a cookie to its own domain and subdomains", () => {
         const cookie = parseSetCookieHeader("session=abc; Domain=example.com", url("example.com", "/"));
         expect(cookie).not.toBeNull();
-        if (cookie === null) {
-            expect.unreachable("cookie parsed as non-null");
-        }
         const c = cookie as Cookie;
         expect(cookieMatchesUrl(c, url("example.com", "/")).matched).toBe(true);
         expect(cookieMatchesUrl(c, url("www.example.com", "/")).matched).toBe(true);
@@ -125,9 +119,6 @@ describe(CATEGORY_ID, () => {
     it("respects the Secure flag — no match over http", () => {
         const cookie = parseSetCookieHeader("session=abc; Domain=example.com; Secure", url("example.com", "/"));
         expect(cookie).not.toBeNull();
-        if (cookie === null) {
-            expect.unreachable("cookie parsed as non-null");
-        }
         const c = cookie as Cookie;
         expect(cookieMatchesUrl(c, url("example.com", "/", false)).matched).toBe(false);
         expect(cookieMatchesUrl(c, url("example.com", "/", true)).matched).toBe(true);
@@ -136,9 +127,6 @@ describe(CATEGORY_ID, () => {
     it("respects the Path attribute", () => {
         const cookie = parseSetCookieHeader("session=abc; Domain=example.com; Path=/api", url("example.com", "/api"));
         expect(cookie).not.toBeNull();
-        if (cookie === null) {
-            expect.unreachable("cookie parsed as non-null");
-        }
         const c = cookie as Cookie;
         expect(cookieMatchesUrl(c, url("example.com", "/api")).matched).toBe(true);
         expect(cookieMatchesUrl(c, url("example.com", "/api/v1")).matched).toBe(true);
