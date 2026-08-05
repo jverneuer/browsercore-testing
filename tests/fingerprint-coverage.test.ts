@@ -67,6 +67,26 @@ describe("ja4-reader — readEcPointFormats truncation (line 89)", () => {
         const buf = new Uint8Array([0x02, 0x00, 0x01]);
         expect(readEcPointFormats(buf, 0)).toEqual([0x00, 0x01]);
     });
+
+    it("throws when the ec_point_formats length byte is past the buffer (line 89)", () => {
+        // Build a full ClientHello whose ec_point_formats extension header claims
+        // extLen = 1 but the data byte is missing. parseJa4ClientHello reads the
+        // extension header, then calls readEcPointFormats at pos === buffer.length
+        // → clientHello[pos] is undefined → the line-87 `listLen === undefined`
+        // branch (reported as line 89) throws.
+        const ec = [0x00, 0x0b, 0x00, 0x01]; // type 0x000b, extLen 1, NO data byte
+        const extLenField = [0x00, ec.length]; // extensions block length = 4
+        const hello = buildBare([
+            VERSION,
+            RANDOM,
+            NO_SESSION,
+            ONE_CIPHER,
+            NO_COMP,
+            extLenField,
+            ec,
+        ]);
+        expect(() => parseJa4ClientHello(hello)).toThrow(/truncated at ec_point_formats length/);
+    });
 });
 
 describe("ja4 — cipher-suites truncation (line 187)", () => {
@@ -160,6 +180,19 @@ describe("ja4h — cookie + header branches", () => {
         // GET -> "ge"; 1.1 -> "11"; cookies -> "c"; referer -> "r";
         // 2 headers -> "02"; no acceptLanguage -> "0000".
         expect(a).toBe("ge11cr020000");
+    });
+
+    it("produces the zero-hash JA4H_b when the request has no cookies (ja4h.ts line 71)", () => {
+        // With cookies: [] the sortedCookies join is the empty string, so
+        // `sortedCookies.length > 0` is false → JA4H_b falls back to the
+        // all-zero sentinel (ja4h.ts line 71 false branch).
+        const { b } = computeJa4h({
+            method: "GET",
+            httpVersion: "1.1",
+            headerNames: ["host"],
+            cookies: [],
+        });
+        expect(b).toBe("000000000000");
     });
 });
 

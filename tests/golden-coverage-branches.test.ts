@@ -96,6 +96,20 @@ describe("parseCaptureMeta — profile-based source derivation", () => {
     });
 });
 
+describe("parseCaptureId — malformed CaptureId (golden.ts line 47)", () => {
+    it("throws TestingError for a CaptureId with fewer than 3 parts (line 40/47)", () => {
+        // A CaptureId with fewer than 3 slash-separated parts is malformed.
+        // "chrome-140" has 1 part, "invalid" has 1 part — both throw.
+        // This exercises the parts.length !== 3 guard (line 40); the deeper
+        // undefined-check at line 45 is structurally unreachable after that
+        // guard, but the TestingError contract is the same.
+        expect(() => loadGolden("chrome-140" as CaptureId)).toThrow(TestingError);
+        expect(() => loadGolden("invalid" as CaptureId)).toThrow(TestingError);
+        expect(() => loadGolden("a/b" as CaptureId)).toThrow(TestingError);
+        expect(() => loadGolden("a/b/c/d" as CaptureId)).toThrow(TestingError);
+    });
+});
+
 describe("compareAgainstGolden — strict + tolerant paths", () => {
     it("reports a match for identical bytes (chrome-140 TLS)", () => {
         const capture = loadGolden(CHROME);

@@ -28,6 +28,7 @@ import {
     ReferenceError,
 } from "../src/reference/reference.js";
 import type { CaptureId } from "../src/types.js";
+import type { ProfileId } from "@browsercore/profiles";
 
 describe("ReferenceProviderFacade — secondary fallback (reference.ts lines 105-129)", () => {
     it("falls back to the secondary provider when the primary fails", async () => {
@@ -74,6 +75,24 @@ describe("CurlImpersonateProvider — fallback to secondary via broken primary",
         const provider = new RealBrowserCaptureProvider();
         const capture = await provider.capture("chrome-140" as CaptureId, "https://example.com");
         expect(capture.bytes.length).toBeGreaterThan(0);
+    });
+});
+
+describe("CurlImpersonateProvider — capture() catch branch (curl-provider.ts line 107)", () => {
+    it("throws ReferenceError when the curl-impersonate command fails", async () => {
+        // A non-existent command makes execFile reject, exercising the catch
+        // branch at curl-provider.ts line 107 that wraps the failure in a
+        // ReferenceError. The error message identifies the profile and the
+        // underlying cause.
+        const provider = new CurlImpersonateProvider({
+            command: "does-not-exist-xyz-binary",
+        });
+        await expect(
+            provider.capture("chrome-140" as ProfileId, "https://example.com"),
+        ).rejects.toThrow(ReferenceError);
+        await expect(
+            provider.capture("chrome-140" as ProfileId, "https://example.com"),
+        ).rejects.toThrow(/curl-impersonate capture for .* failed/);
     });
 });
 
@@ -129,21 +148,16 @@ describe("fingerprintFromTlsCapture — sidecar fallback (dump.ts lines 92-108)"
     });
 });
 
-describe("cipherSuiteName — empty-tag fallback (dump.ts line 107)", () => {
-    it("returns the JA4_a segment for a well-formed tag", () => {
-        expect(cipherSuiteName("t13d1516h2_8f5862453f0e_abc123def456_7890abcdef12")).toBe(
-            "t13d1516h2",
-        );
-    });
-
-    it("returns 'unknown' for an empty tag (line 107 fallback)", () => {
+describe("cipherSuiteName — empty-tag fallback (dump.ts line 108)", () => {
+    it("returns 'unknown' for an empty tag (line 108 fallback branch)", () => {
+        // ja4Tag="" → split("_")[0]="" → a.length === 0 → returns "unknown".
+        // Exercises the `a.length > 0 ? a : "unknown"` false branch (arm 1).
         expect(cipherSuiteName("")).toBe("unknown");
     });
 
-    it("returns 'unknown' for a tag with no underscore", () => {
-        // A tag with no underscore → split("_")[0] is the whole string, which
-        // is non-empty → returns it. To hit the empty fallback we need the
-        // JA4_a segment itself to be empty, which only happens for "".
-        expect(cipherSuiteName("nounderscore")).toBe("nounderscore");
+    it("returns the JA4_a segment for a tag with underscore (line 108 true branch)", () => {
+        // ja4Tag="abc_def" → split("_")[0]="abc" → a.length > 0 → returns "abc".
+        // Exercises the `a.length > 0 ? a : "unknown"` true branch (arm 0).
+        expect(cipherSuiteName("abc_def")).toBe("abc");
     });
 });

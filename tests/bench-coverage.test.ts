@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from "vitest";
 import { benchmarkTlsHandshake, benchmarkHttp2Request } from "../src/index.js";
+import { percentile } from "../src/bench/bench.js";
 
 describe("benchmarkTlsHandshake — percentile edge cases", () => {
     it("produces equal percentiles for a single iteration (one sample)", () => {
@@ -69,5 +70,34 @@ describe("percentile — empty-array branch (bench.ts line 62)", () => {
         expect(stats.p50).toBe(0);
         expect(stats.p95).toBe(0);
         expect(stats.p99).toBe(0);
+    });
+});
+
+describe("percentile — nullish fallback (bench.ts line 65)", () => {
+    it("returns 0 when the indexed slot is undefined (sparse array)", () => {
+        // idx is clamped to [0, sorted.length - 1], so for a dense number[]
+        // the indexed value is never nullish. The `?? 0` fallback only fires
+        // when the slot is undefined — i.e. a sparse array. With length 5 and
+        // p = 0.5, idx = min(4, ceil(2.5) - 1) = min(4, 2) = 2, and sorted[2]
+        // is undefined → the `?? 0` branch returns 0.
+        const sparse: number[] = [];
+        sparse.length = 5;
+        expect(percentile(sparse, 0.5)).toBe(0);
+    });
+
+    it("returns 0 for every percentile against a fully sparse array", () => {
+        // All slots undefined → every percentile takes the `?? 0` branch.
+        const sparse: number[] = [];
+        sparse.length = 10;
+        for (const p of [0, 0.25, 0.5, 0.75, 0.95, 0.99, 1]) {
+            expect(percentile(sparse, p)).toBe(0);
+        }
+    });
+
+    it("returns the value when the indexed slot is populated", () => {
+        // Dense array: idx = min(2, ceil(0.5 * 3) - 1) = min(2, 1) = 1.
+        // sorted[1] === 20, which is not nullish → `?? 0` is NOT taken.
+        const sorted = [10, 20, 30];
+        expect(percentile(sorted, 0.5)).toBe(20);
     });
 });

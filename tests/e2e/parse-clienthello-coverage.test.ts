@@ -363,6 +363,66 @@ describe("parseAlpnProtocols", () => {
     });
 });
 
+// --- parseClientHello: extensions skipped when body too short (line 214) -----
+
+describe("parseClientHello — extensions skipped when <2 bytes remain (line 214)", () => {
+    it("treats a body ending after compression_methods as no extensions", () => {
+        // Body layout: version(2) + random(32) + session(1, len=0) +
+        // cipher_suites(2, len=0) + compression_methods(1, len=0) = 38 bytes.
+        // After parsing, o === bodyEnd, so `o + 2 <= bodyEnd` is false → the
+        // line-214 guard skips the extensions block entirely.
+        const random = Array.from({ length: 32 }, () => 0);
+        const body: number[] = [
+            0x03, 0x04, // legacy_version
+            ...random, // 32 bytes
+            0x00, // session_id len = 0
+            0x00, 0x00, // cipher_suites len = 0
+            0x00, // compression_methods len = 0
+        ];
+        const handshakeLen = body.length;
+        const buf = new Uint8Array([
+            0x01, // handshake type
+            (handshakeLen >> 16) & 0xff,
+            (handshakeLen >> 8) & 0xff,
+            handshakeLen & 0xff,
+            ...body,
+        ]);
+        const parsed = parseClientHello(buf);
+        expect(parsed.extensions).toEqual([]);
+        expect(parsed.compressionMethods).toEqual([]);
+    });
+});
+
+// --- parseSniHostname: name extends past extension data (line 290) ---------
+
+describe("parseSniHostname — SNI name truncated past ext data (line 290)", () => {
+    it("returns null when the SNI entry name exceeds the extension data", () => {
+        // SNI ext.data: listLen(2)=5, then one entry name_type=0 (host_name),
+        // name_len(2)=16, but only 2 name bytes follow → o + nameLen >
+        // ext.data.length → line 290 returns null.
+        const sniData = new Uint8Array([0x00, 0x05, 0x00, 0x00, 0x10, 0x61, 0x62]);
+        const sniExt = ext(EXT.SERVER_NAME, sniData);
+        const hello = bareClientHello([0x1301], [sniExt]);
+        const parsed = parseClientHello(hello);
+        expect(parseSniHostname(parsed)).toBeNull();
+    });
+});
+
+// --- parseAlpnProtocols: protocol name extends past ext data (line 316) -----
+
+describe("parseAlpnProtocols — ALPN name truncated past ext data (line 316)", () => {
+    it("breaks and returns protocols parsed so far when a name exceeds the data", () => {
+        // ALPN ext.data: listLen(2)=4, then one entry name_len(1)=16, but only
+        // 1 name byte follows → o + nameLen > ext.data.length → line 316 breaks.
+        const alpnData = new Uint8Array([0x00, 0x04, 0x10, 0x61]);
+        const alpnExt = ext(EXT.APPLICATION_LAYER_PROTOCOL_NEGOTIATION, alpnData);
+        const hello = bareClientHello([0x1301], [alpnExt]);
+        const parsed = parseClientHello(hello);
+        // The first (only) protocol name is truncated → nothing parsed → [].
+        expect(parseAlpnProtocols(parsed)).toEqual([]);
+    });
+});
+
 // --- parseSupportedVersions ---------------------------------------------
 
 describe("parseSupportedVersions", () => {
