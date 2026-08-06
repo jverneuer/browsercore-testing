@@ -14,15 +14,14 @@
  */
 
 import type { BenchStats } from "../types.js";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { computeJa3, computeJa4 } from "../fingerprint/index.js";
 import { compareBytes } from "../utils.js";
 import { compression } from "@browsercore/compression";
+import { fileSystem, path } from "../node-provider.js";
 
 const here = import.meta.dirname;
 // src/bench -> package root -> captures/
-const capturesDir = join(here, "..", "..", "captures");
+const capturesDir = path.join(here, "..", "..", "captures");
 
 /** Deterministic payload: byte[i] = i % 256 (reproducible, never random). */
 function detBuffer(length: number): Uint8Array {
@@ -78,7 +77,9 @@ export function benchmarkTlsHandshake(
     // Load the chrome-140 golden capture once; the benchmark measures the
     // parsing + fingerprinting cost, not the live handshake (which needs a
     // functional TLS stack + loopback server — future work).
-    const bytes = readFileSync(join(capturesDir, "chrome-140", "tls", "client_hello.bin"));
+    const bytes = fileSystem.readFileSync(
+        path.join(capturesDir, "chrome-140", "tls", "client_hello.bin"),
+    );
     const iters = Math.max(1, iterations);
 
     const timings = measure(iters, () => {
@@ -108,7 +109,9 @@ export function benchmarkHttp2Request(
     void _options;
     // The HTTP/2 SETTINGS frame is small and deterministic — ideal for
     // repeated comparison benchmarking without a live server.
-    const bytes = readFileSync(join(capturesDir, "chrome-140", "http2", "settings.bin"));
+    const bytes = fileSystem.readFileSync(
+        path.join(capturesDir, "chrome-140", "http2", "settings.bin"),
+    );
     const iters = Math.max(1, iterations);
 
     // Pre-compress a payload for the compression round-trip sub-benchmark.

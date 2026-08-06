@@ -12,6 +12,7 @@ import type { GoldenCapture } from "../types.js";
 import type { Fingerprint, ReferenceProvider, ReferenceProviderKind } from "./reference-types.js";
 import { ReferenceError } from "./reference-errors.js";
 import { fingerprintFromTlsCapture, profileToSource } from "./dump.js";
+import { path } from "../node-provider.js";
 
 /** Options for the real-browser (pre-recorded capture) provider. */
 export interface RealBrowserOptions {
@@ -74,7 +75,6 @@ export class RealBrowserCaptureProvider implements ReferenceProvider {
 
 // Default captures dir resolved from this module's location. Computed at module
 // load (not per-instance) since import.meta.dirname is static.
-import { join } from "node:path";
 const here = import.meta.dirname;
-const packageRoot = join(here, "..", "..");
-const defaultCapturesDir = join(packageRoot, "captures");
+const packageRoot = path.join(here, "..", "..");
+const defaultCapturesDir = path.join(packageRoot, "captures");

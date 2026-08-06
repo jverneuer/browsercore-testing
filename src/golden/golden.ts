@@ -12,8 +12,6 @@
  * `captures/<profile>/<protocol>/<record>.{bin,meta.json}` layout.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type {
     CaptureId,
     CaptureMeta,
@@ -24,10 +22,11 @@ import type {
 } from "../types.js";
 import { compareBytes, compareBytesWithIgnore } from "../utils.js";
 import { GoldenMismatchError, TestingError } from "../errors.js";
+import { fileSystem, path } from "../node-provider.js";
 
 const here = import.meta.dirname;
 // src/golden -> package root -> captures/
-const capturesDir = join(here, "..", "..", "captures");
+const capturesDir = path.join(here, "..", "..", "captures");
 
 /** Parse a CaptureId of the form `${profile}/${protocol}/${record}`. */
 function parseCaptureId(captureId: CaptureId): {
@@ -152,7 +151,7 @@ function resolveCapturePaths(captureId: CaptureId): {
     readonly metaPath: string;
 } {
     const { profile, protocol, record } = parseCaptureId(captureId);
-    const base = join(capturesDir, profile, protocol, record);
+    const base = path.join(capturesDir, profile, protocol, record);
     return { binPath: `${base}.bin`, metaPath: `${base}.meta.json` };
 }
 
@@ -169,7 +168,7 @@ export function loadGolden(captureId: CaptureId): GoldenCapture {
 
     let bytes: Uint8Array;
     try {
-        bytes = readFileSync(binPath);
+        bytes = fileSystem.readFileSync(binPath);
     } catch (e) {
         const cause = e instanceof Error ? e : new Error(String(e));
         throw new TestingError(`Failed to read capture bytes at ${binPath}`, { cause });
@@ -177,7 +176,7 @@ export function loadGolden(captureId: CaptureId): GoldenCapture {
 
     let meta: unknown;
     try {
-        meta = JSON.parse(readFileSync(metaPath, "utf8")) as unknown;
+        meta = JSON.parse(fileSystem.readFileText(metaPath)) as unknown;
     } catch (e) {
         const cause = e instanceof Error ? e : new Error(String(e));
         throw new TestingError(`Failed to read/parse capture meta at ${metaPath}`, { cause });
@@ -216,7 +215,7 @@ export function loadCaptureMeta(captureId: CaptureId): CaptureMeta {
     const { metaPath } = resolveCapturePaths(captureId);
     let raw: unknown;
     try {
-        raw = JSON.parse(readFileSync(metaPath, "utf8")) as unknown;
+        raw = JSON.parse(fileSystem.readFileText(metaPath)) as unknown;
     } catch (e) {
         const cause = e instanceof Error ? e : new Error(String(e));
         throw new TestingError(`Failed to read/parse capture meta at ${metaPath}`, { cause });

@@ -119,3 +119,9 @@ export type {
     ParsedExtension,
     ExtensionTypeValue,
 } from "./e2e/parse-clienthello.js";
+
+// Provider interfaces + default Node-backed singletons (Rule 21 — runtime
+// independence). Higher layers depend on the interfaces; the singletons are
+// the production defaults. Tests inject fakes through the interfaces.
+export { fileSystem, path, NodeFileSystemProvider, NodePathProvider } from "./node-provider.js";
+export type { FileSystemProvider, PathProvider } from "./provider.js";

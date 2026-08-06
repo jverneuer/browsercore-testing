@@ -8,14 +8,13 @@
  * (no magic strings — see CODING_STANDARDS.md).
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { ProfileId } from "@browsercore/profiles";
 import type { CaptureMeta } from "../types.js";
+import { fileSystem, path } from "../node-provider.js";
 
 const here = import.meta.dirname;
 // src/captures -> package root -> captures/
-const capturesDir = join(here, "..", "..", "captures");
+const capturesDir = path.join(here, "..", "..", "captures");
 
 /** A discovered capture: its typed metadata plus the raw on-disk bytes. */
 export interface CaptureEntry {
@@ -29,11 +28,11 @@ function id(s: string): ProfileId {
 }
 
 function entry(relativePath: string, meta: CaptureMeta): CaptureEntry {
-    const abs = join(capturesDir, relativePath);
+    const abs = path.join(capturesDir, relativePath);
     return {
         path: relativePath,
         meta,
-        bytes: readFileSync(abs),
+        bytes: fileSystem.readFileSync(abs),
     };
 }
 
