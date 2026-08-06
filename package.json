@@ -34,7 +34,7 @@
     },
     "scripts": {
         "clean": "rm -rf dist",
-        "build": "tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.json",
         "prepublishOnly": "npm run clean && npm run build",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest run",
@@ -42,7 +42,6 @@
         "coverage-md": "./bin/coverage-md.mjs"
     },
     "devDependencies": {
-        "@browsercore/dev": "latest",
         "@types/node": "^26.1.2",
         "@vitest/coverage-v8": "^4.1.10",
         "oxlint": "^1.76.0",
