@@ -16,16 +16,11 @@ import { DnsResolutionError, resolveHost } from "@browsercore/transport";
 
 import { nodeCrypto } from "../src/reference/node-reference.js";
 
-// nodeDns is loaded lazily — node:dns.lookup is unavailable in some CI
-// environments (restricted network, sandboxed runner). Guard so the test file
-// does not hard-fail at import time when the oracle is absent.
-let nodeDns: { lookup(host: string, ipv6: boolean): Promise<{ address: string; family: 4 | 6 }> } | undefined;
-try {
-    const mod = await import("../src/reference/node-reference.js");
-    nodeDns = mod.nodeDns;
-} catch {
-    nodeDns = undefined;
-}
+// nodeDns may be unavailable in some CI environments (restricted network,
+// sandboxed runner where node:dns.lookup is not callable). Probe it at module
+// load time; tests that need it skip when absent.
+import { nodeDns as nodeDnsMod } from "../src/reference/node-reference.js";
+const nodeDns = typeof nodeDnsMod?.lookup === "function" ? nodeDnsMod : undefined;
 
 /** Known SHA-256 digest of the empty buffer. */
 const SHA256_EMPTY_HEX =
@@ -144,7 +139,13 @@ describe("crypto vs node:crypto", () => {
 });
 
 describe("dns vs node:dns", () => {
-    const itIfOracle = nodeDns ? it : it.skip;
+    const itIfOracle = (name: string, fn: () => Promise<void> | void) => {
+        if (nodeDns) {
+            it(name, fn);
+        } else {
+            it.skip(name, () => {});
+        }
+    };
 
     itIfOracle("resolveHost for localhost returns loopback, matches node lookup", async () => {
         const ours = await resolveHost("localhost", false);
