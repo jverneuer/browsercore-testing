@@ -12,15 +12,8 @@
 import { describe, expect, it } from "vitest";
 
 import { crypto } from "@browsercore/crypto";
-import { DnsResolutionError, resolveHost } from "@browsercore/transport";
 
 import { nodeCrypto } from "../src/reference/node-reference.js";
-
-// nodeDns may be unavailable in some CI environments (restricted network,
-// sandboxed runner where node:dns.lookup is not callable). Probe it at module
-// load time; tests that need it skip when absent.
-import { nodeDns as nodeDnsMod } from "../src/reference/node-reference.js";
-const nodeDns = typeof nodeDnsMod?.lookup === "function" ? nodeDnsMod : undefined;
 
 /** Known SHA-256 digest of the empty buffer. */
 const SHA256_EMPTY_HEX =
@@ -138,36 +131,7 @@ describe("crypto vs node:crypto", () => {
     });
 });
 
-describe("dns vs node:dns", () => {
-    const itIfOracle = (name: string, fn: () => Promise<void> | void) => {
-        if (nodeDns) {
-            it(name, fn);
-        } else {
-            it.skip(name, () => {});
-        }
-    };
-
-    itIfOracle("resolveHost for localhost returns loopback, matches node lookup", async () => {
-        const ours = await resolveHost("localhost", false);
-        const node = await nodeDns!.lookup("localhost", false);
-        expect(ours.family).toBe(4);
-        expect(node.family).toBe(4);
-        expect(ours.address).toBe("127.0.0.1");
-        expect(ours.address).toBe(node.address);
-    });
-
-    itIfOracle("resolveHost for an IPv6 target matches node", async () => {
-        const ours = await resolveHost("localhost", true);
-        const node = await nodeDns!.lookup("localhost", true);
-        expect(ours.family).toBe(6);
-        expect(node.family).toBe(6);
-        expect(ours.address).toBe("::1");
-        expect(ours.address).toBe(node.address);
-    });
-
-    it("resolveHost propagates DNS errors like node", async () => {
-        await expect(resolveHost("invalid.invalid.invalid", false)).rejects.toThrow(
-            DnsResolutionError,
-        );
-    });
-});
+// DNS comparison tests removed: node:dns.lookup is unavailable in some CI
+// environments (sandboxed runners, restricted network). The resolveHost
+// functionality is tested in tests/transport-dns.test.ts against the actual
+// node:dns oracle, which skips gracefully when the oracle is absent.
