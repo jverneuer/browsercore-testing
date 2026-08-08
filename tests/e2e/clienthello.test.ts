@@ -17,6 +17,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { getProfile, buildExpectedClientHello } from "@browsercore/profiles";
 import { generateKeyShares } from "@browsercore/tls";
+import { crypto } from "@browsercore/crypto";
 import type { BrowserProfile } from "@browsercore/profiles";
 import {
     parseClientHello,
@@ -73,7 +74,7 @@ async function buildClientHelloFromProfile(
     const grease = profile.tls.grease;
 
     // Generate real X25519 key pairs for the key_share extension.
-    const keyPairs = await generateKeyShares(["x25519"]);
+    const keyPairs = await generateKeyShares(["x25519"], crypto);
 
     // --- cipher suites (IANA wire codes) ----------------------------------
     // For GREASE profiles, a GREASE cipher (0x0a0a) must lead the list. Chrome
