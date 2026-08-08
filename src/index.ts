@@ -97,11 +97,8 @@ export type { SelfSignedCert } from "./e2e/cert-gen.js";
 // returns a known body + marker header so a client test can assert the full
 // request path (TCP → TLS → HTTP) worked. Reusable by any package that wants
 // to verify its HTTP stack against a real local server.
-export { startTrafficServer, stopTrafficServer } from "./e2e/traffic-server.js";
-export type { TrafficServer, TrafficServerOptions } from "./e2e/traffic-server.js";
-
-// Node.js adapters for the Net + DnsResolver contracts (no browsersmith dep).
-export { nodeNet, nodeDns } from "./e2e/node-adapters.js";
+export { TrafficServer } from "./e2e/traffic-server.js";
+export type { TrafficResult } from "./e2e/traffic-server.js";
 
 // Minimal ClientHello wire parser — structural assertions for the e2e matrix.
 // (Distinct from the JA3 `parseClientHello` re-exported from fingerprint.)
