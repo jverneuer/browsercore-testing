@@ -92,6 +92,17 @@ export type { ClientHelloCapture, HandshakeResult } from "./e2e/sink-server.js";
 export { generateSelfSignedCert } from "./e2e/cert-gen.js";
 export type { SelfSignedCert } from "./e2e/cert-gen.js";
 
+// E2E HTTPS traffic server — local TLS termination oracle for the traffic
+// gate. Spins up a real HTTPS server with a throwaway self-signed cert and
+// returns a known body + marker header so a client test can assert the full
+// request path (TCP → TLS → HTTP) worked. Reusable by any package that wants
+// to verify its HTTP stack against a real local server.
+export { startTrafficServer, stopTrafficServer } from "./e2e/traffic-server.js";
+export type { TrafficServer, TrafficServerOptions } from "./e2e/traffic-server.js";
+
+// Node.js adapters for the Net + DnsResolver contracts (no browsersmith dep).
+export { nodeNet, nodeDns } from "./e2e/node-adapters.js";
+
 // Minimal ClientHello wire parser — structural assertions for the e2e matrix.
 // (Distinct from the JA3 `parseClientHello` re-exported from fingerprint.)
 // Note: `parseClientHello` is intentionally NOT re-exported here to avoid

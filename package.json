@@ -38,6 +38,7 @@
         "prepublishOnly": "npm run clean && npm run build",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest run",
+        "test:traffic": "vitest run tests/e2e/traffic-gate.test.ts",
         "lint": "oxlint --type-aware src/",
         "coverage-md": "./bin/coverage-md.mjs"
     },
