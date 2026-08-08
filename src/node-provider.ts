@@ -9,9 +9,9 @@
  * the runtime built-ins.
  *
  * Higher layers call the provider methods here, never `node:fs`/`node:path`
- * directly, so the backend stays replaceable. Exported as default singletons
- * so consumers can call `fileSystem.readFileSync(...)` without threading a
- * provider through every constructor.
+ * directly, so the backend stays replaceable. Factories return a fresh
+ * instance so consumers can call `createFileSystem().readFileSync(...)` without
+ * threading a provider through every constructor.
  */
 
 import { readFileSync } from "node:fs";
@@ -21,9 +21,9 @@ import type { FileSystemProvider, PathProvider } from "./provider.js";
 /**
  * `node:fs`-backed implementation of {@link FileSystemProvider}.
  *
- * The production testing layers call the default singleton (`fileSystem`) —
- * they never construct this class directly. Tests inject a fake provider
- * through the `FileSystemProvider` interface.
+ * Production code calls the factory (`createFileSystem()`) — it never
+ * constructs this class directly. Tests inject a fake provider through the
+ * `FileSystemProvider` interface.
  */
 export class NodeFileSystemProvider implements FileSystemProvider {
     public readFileSync(path: string): Uint8Array {
@@ -38,9 +38,9 @@ export class NodeFileSystemProvider implements FileSystemProvider {
 /**
  * `node:path`-backed implementation of {@link PathProvider}.
  *
- * The production testing layers call the default singleton (`path`) — they
- * never construct this class directly. Tests inject a fake provider through
- * the `PathProvider` interface.
+ * Production code calls the factory (`createPath()`) — it never constructs
+ * this class directly. Tests inject a fake provider through the
+ * `PathProvider` interface.
  */
 export class NodePathProvider implements PathProvider {
     public join(...parts: string[]): string {
@@ -48,8 +48,12 @@ export class NodePathProvider implements PathProvider {
     }
 }
 
-/** Default file-system backend higher layers call into. */
-export const fileSystem: FileSystemProvider = new NodeFileSystemProvider();
+/** Factory that returns the default {@link FileSystemProvider}. */
+export function createFileSystem(): FileSystemProvider {
+    return new NodeFileSystemProvider();
+}
 
-/** Default path backend higher layers call into. */
-export const path: PathProvider = new NodePathProvider();
+/** Factory that returns the default {@link PathProvider}. */
+export function createPath(): PathProvider {
+    return new NodePathProvider();
+}

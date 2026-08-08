@@ -10,7 +10,10 @@
 
 import type { ProfileId } from "@browsercore/profiles";
 import type { CaptureMeta } from "../types.js";
-import { fileSystem, path } from "../node-provider.js";
+import { createFileSystem, createPath } from "../node-provider.js";
+
+const fileSystem = createFileSystem();
+const path = createPath();
 
 const here = import.meta.dirname;
 // src/captures -> package root -> captures/

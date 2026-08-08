@@ -12,7 +12,9 @@ import type { GoldenCapture } from "../types.js";
 import type { Fingerprint, ReferenceProvider, ReferenceProviderKind } from "./reference-types.js";
 import { ReferenceError } from "./reference-errors.js";
 import { fingerprintFromTlsCapture, profileToSource } from "./dump.js";
-import { path } from "../node-provider.js";
+import { createPath } from "../node-provider.js";
+
+const path = createPath();
 
 /** Options for the real-browser (pre-recorded capture) provider. */
 export interface RealBrowserOptions {
