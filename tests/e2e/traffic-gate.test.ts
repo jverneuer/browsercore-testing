@@ -26,7 +26,11 @@ import { TLS_1_3 } from "@browsercore/tls";
  */
 const TRAFFIC_PROFILE: ClientHelloConfig = {
     cipherSuites: ["TLS_AES_128_GCM_SHA256"],
-    extensionOrder: [0, 10, 11, 13, 16, 18, 23, 27, 35, 41, 43, 45, 5, 51, 65281],
+    // Minimal extension set for testing decryption: only extensions OpenSSL
+    // accepts in a TLS 1.3 ClientHello. No PSK (must be last + needs binders),
+    // no compress_certificate, no TLS 1.2 legacy extensions that trigger
+    // ERR_SSL_BAD_EXTENSION.
+    extensionOrder: [0, 10, 11, 13, 16, 43, 51],
     keyShareGroups: ["x25519"],
     signatureAlgorithms: ["ecdsa_secp256r1_sha256"],
     supportedVersions: [TLS_1_3],
