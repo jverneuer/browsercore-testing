@@ -71,7 +71,7 @@ const compression: CompressionProvider = {
             case "identity":
                 return data;
             default:
-                throw new UnsupportedEncodingError(`unsupported encoding: ${encoding}`);
+                throw new UnsupportedEncodingError(`unsupported encoding: ${String(encoding)}`);
         }
     },
 };
