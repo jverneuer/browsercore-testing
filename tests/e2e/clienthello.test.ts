@@ -17,7 +17,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { getProfile, buildExpectedClientHello } from "@browsercore/profiles";
 import { generateKeyShares } from "@browsercore/tls";
-import { crypto } from "@browsercore/crypto";
+import { nodeCryptoProvider as crypto } from "../../src/reference/node-crypto-provider.js";
 import type { BrowserProfile } from "@browsercore/profiles";
 import {
     parseClientHello,

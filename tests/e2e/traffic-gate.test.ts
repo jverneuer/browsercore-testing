@@ -12,12 +12,52 @@
 import { describe, expect, it } from "vitest";
 import { EventEmitter } from "node:events";
 import { connect as netConnect, type Socket } from "node:net";
-import { crypto } from "@browsercore/crypto";
 import { connectTls } from "@browsercore/tls";
+import { nodeCryptoProvider as crypto } from "../../src/reference/node-crypto-provider.js";
+import type { EventProvider } from "@browsercore/contracts";
 import { TrafficServer } from "../../src/e2e/traffic-server.js";
 import type { Transport, TransportState } from "@browsercore/transport";
 import type { ClientHelloConfig } from "@browsercore/tls";
 import { TLS_1_3 } from "@browsercore/tls";
+
+/**
+ * Minimal Node-backed EventProvider adapter.
+ *
+ * @browsercore/tls 0.4.2 requires an injected `EventProvider` via Platform
+ * composition. This repo provides a thin adapter over node:events.EventEmitter
+ * to satisfy the contract without depending on browsersmith.
+ */
+class NodeEventProvider implements EventProvider {
+    private readonly emitter = new EventEmitter();
+
+    on(event: string, listener: (...args: unknown[]) => void): void {
+        this.emitter.on(event, listener as (...args: unknown[]) => void);
+    }
+
+    once(event: string, listener: (...args: unknown[]) => void): void {
+        this.emitter.once(event, listener as (...args: unknown[]) => void);
+    }
+
+    off(event: string, listener: (...args: unknown[]) => void): void {
+        this.emitter.off(event, listener as (...args: unknown[]) => void);
+    }
+
+    removeListener(event: string, listener: (...args: unknown[]) => void): void {
+        this.emitter.removeListener(event, listener as (...args: unknown[]) => void);
+    }
+
+    emit(event: string, ...args: unknown[]): boolean {
+        return this.emitter.emit(event, ...args);
+    }
+
+    listenerCount(event: string): number {
+        return this.emitter.listenerCount(event);
+    }
+
+    removeAllListeners(event?: string): void {
+        this.emitter.removeAllListeners(event);
+    }
+}
 
 /**
  * Minimal TLS 1.3 profile for e2e traffic tests.
@@ -87,11 +127,13 @@ describe("Bug 6: AES-128-GCM record decryption (e2e traffic)", () => {
     it("completes handshake and decrypts server response", async () => {
         const server = await TrafficServer.start();
         const handshakeResult = server.waitForHandshake(5000);
+        const events = new NodeEventProvider();
 
         const transport = new TcpClientTransport(server.host, server.port);
         const conn = await connectTls({
             transport,
             crypto,
+            events,
             serverName: "localhost",
             profile: TRAFFIC_PROFILE,
             // Self-signed cert: skip chain verification, hostname still validates
@@ -118,11 +160,13 @@ describe("Bug 6: AES-128-GCM record decryption (e2e traffic)", () => {
     it("negotiates ALPN and decrypts response", async () => {
         const server = await TrafficServer.start();
         const handshakeResult = server.waitForHandshake(5000);
+        const events = new NodeEventProvider();
 
         const transport = new TcpClientTransport(server.host, server.port);
         const conn = await connectTls({
             transport,
             crypto,
+            events,
             serverName: "localhost",
             profile: TRAFFIC_PROFILE,
             trustAnchors: [],
