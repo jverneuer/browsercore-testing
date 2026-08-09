@@ -22,7 +22,10 @@ import type {
 } from "../types.js";
 import { compareBytes, compareBytesWithIgnore } from "../utils.js";
 import { GoldenMismatchError, TestingError } from "../errors.js";
-import { fileSystem, path } from "../node-provider.js";
+import { createFileSystem, createPath } from "../node-provider.js";
+
+const fileSystem = createFileSystem();
+const path = createPath();
 
 const here = import.meta.dirname;
 // src/golden -> package root -> captures/

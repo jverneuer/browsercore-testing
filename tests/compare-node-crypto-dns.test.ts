@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { crypto } from "@browsercore/crypto";
+import { nodeCryptoProvider as crypto } from "../src/reference/node-crypto-provider.js";
 
 import { nodeCrypto } from "../src/reference/node-reference.js";
 
