@@ -73,6 +73,16 @@ console.log(result.matches);
 // Benchmark a TLS handshake over 100 iterations (stub — throws until implemented):
 // const stats = benchmarkTlsHandshake(100);
 // console.log("p99:", stats.p99, "ms");
+
+// Fingerprint a ClientHello and an HTTP/2 connection (Cat 4):
+import { computeJa3, buildAkamaiFingerprint } from "@browsercore/testing";
+const ja3 = computeJa3(clientHelloBytes);
+const akamai = buildAkamaiFingerprint({
+    settings: [{ id: 1, value: 65536 }],
+    windowUpdateIncrement: 15663105,
+    priorityFrameCount: 0,
+    pseudoHeaderOrder: [":method", ":authority", ":scheme", ":path"],
+});
 ```
 
 ## Types
@@ -86,6 +96,9 @@ console.log(result.matches);
 | `runHttp1Compliance()` | function | HTTP/1.1 RFC 9110 compliance suite |
 | `benchmarkTlsHandshake()` | function | TLS handshake benchmark |
 | `benchmarkHttp2Request()` | function | HTTP/2 request benchmark |
+| `computeJa3()` | function | JA3 TLS ClientHello fingerprint digest |
+| `computeJa4()` | function | JA4 four-part TLS ClientHello fingerprint tag |
+| `buildAkamaiFingerprint()` | function | Akamai HTTP/2 fingerprint string from connection params |
 | `GoldenCapture` | interface | A recorded packet capture |
 | `ComparisonResult` | interface | Outcome of a golden comparison |
 | `BenchStats` | interface | p50/p95/p99 latency stats |

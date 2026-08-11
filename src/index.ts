@@ -68,6 +68,17 @@ export type {
 export { computeJa3, computeJa4, Ja3ParseError, parseClientHello } from "./fingerprint/index.js";
 export type { Ja3Segments } from "./fingerprint/index.js";
 
+// Akamai HTTP/2 fingerprint string builder (Cat 4).
+export {
+    buildAkamaiFingerprint,
+    H2_SETTINGS,
+} from "./fingerprint/index.js";
+export type {
+    AkamaiFingerprintInput,
+    H2PseudoHeader,
+    H2Setting,
+} from "./fingerprint/index.js";
+
 // Node.js reference oracle — deterministic comparison target for the primitive
 // layers (crypto, dns, zlib, wire format). See src/reference/node-reference.ts.
 export {
