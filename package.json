@@ -1,6 +1,6 @@
 {
     "name": "@browsercore/testing",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "description": "Protocol verification — RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
     "repository": {
         "type": "git",
@@ -62,10 +62,10 @@
         "@browsercore/http1": "0.2.1",
         "@browsercore/http2": "0.2.3",
         "@browsercore/profiles": "0.2.0",
-        "@browsercore/tls": "0.4.2",
+        "@browsercore/tls": "0.4.9",
         "@browsercore/transport": "0.2.5"
     },
     "overrides": {
-        "@browsercore/tls": "0.4.2"
+        "@browsercore/tls": "0.4.9"
     }
 }
