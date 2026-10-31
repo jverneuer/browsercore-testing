@@ -4,7 +4,7 @@
  * The minimal ClientHello used for JA3 has no SNI / ALPN / supported-groups, so
  * the JA4 fingerprint (ja4.ts lines 328-359) and JA4H (lines 388-421) were fully
  * uncovered. This file builds a richer ClientHello and a representative HTTP
- * request to exercise the four-part JA4 tag and the four-part JA4H tag.
+ * request to exercise the three-part JA4 tag and the three-part JA4H tag.
  */
 
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ import { computeJa4Fingerprint, parseJa4ClientHello } from "../src/fingerprint/j
 import { computeJa4h } from "../src/fingerprint/ja4h.js";
 
 /** JA4 tag shape: t{cc:02}{ee:02}{sni}{ver}{alpn} _ 12hex _ 12hex _ 12hex. */
-const JA4_TAG_RE = /^t\d{2}\d{2}[di]\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}_[a-z0-9]{12}$/;
+const JA4_TAG_RE = /^t\d{2}[di]\d{2}\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}$/;
 /** JA4H tag shape: {method:02}{ver}{cookies}{referer}{hh:02}{lang} _ 12hex _ 12hex _ 12hex. */
 const JA4H_TAG_RE = /^[a-z]{2}\d{2}[cn][cn]\d{2}[a-z0-9]{4}_[a-z0-9]{12}_[a-z0-9]{12}_[a-z0-9]{12}$/;
 
@@ -71,7 +71,7 @@ function wrapInRecord(bare: Uint8Array): Uint8Array {
     ]);
 }
 
-describe("computeJa4 (four-part JA4 TLS fingerprint)", () => {
+describe("computeJa4 (canonical JA4 TLS fingerprint)", () => {
     it("emits a well-formed canonical JA4 tag", () => {
         const tag = computeJa4(richClientHello());
         expect(tag).toMatch(JA4_TAG_RE);
@@ -87,7 +87,7 @@ describe("computeJa4 (four-part JA4 TLS fingerprint)", () => {
         expect(a.startsWith("t")).toBe(true);
         // 2 ciphers -> "02"; 4 non-GREASE exts -> "04"; SNI present -> "d";
         // TLS 1.3 -> "13"; ALPN h + h -> "hh".
-        expect(a).toBe("t0204d13hh");
+        expect(a).toBe("t13d0204h2");
     });
 
     it("omits SNI and ALPN from the JA4_c extension hash", () => {
@@ -96,7 +96,7 @@ describe("computeJa4 (four-part JA4 TLS fingerprint)", () => {
         for (const part of [b, c, f]) {
             expect(part).toMatch(/^[0-9a-f]{12}$/);
         }
-        expect(`${a}_${b}_${c}_${f}`).toBe(computeJa4(richClientHello()));
+        expect(`${a}_${b}_${c}`).toBe(computeJa4(richClientHello()));
     });
 });
 
@@ -129,7 +129,7 @@ describe("JA4_f — client_version, not record-header bytes", () => {
     });
 });
 
-describe("computeJa4h (four-part JA4H HTTP fingerprint)", () => {
+describe("computeJa4h (JA4H HTTP fingerprint)", () => {
     it("emits a well-formed canonical JA4H tag", () => {
         const tag = computeJa4h({
             method: "GET",

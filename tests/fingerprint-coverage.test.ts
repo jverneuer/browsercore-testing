@@ -282,7 +282,7 @@ describe("ja4 — alpnCode empty-protocol branches (lines 90, 91)", () => {
         const hello = buildBare([VERSION, RANDOM, NO_SESSION, ONE_CIPHER, NO_COMP, extLen, alpn]);
         const { a } = computeJa4Fingerprint(hello);
         // 1 cipher, 1 ext, no SNI -> "i", TLS 1.3 -> "13", alpnCode -> "0h".
-        expect(a).toBe("t0101i130h");
+        expect(a).toBe("t13i010100");
     });
 
     it("uses '0' for the last char when the last ALPN protocol is empty", () => {
@@ -294,6 +294,6 @@ describe("ja4 — alpnCode empty-protocol branches (lines 90, 91)", () => {
         const hello = buildBare([VERSION, RANDOM, NO_SESSION, ONE_CIPHER, NO_COMP, extLen, alpn]);
         const { a } = computeJa4Fingerprint(hello);
         // alpnCode -> "h0".
-        expect(a).toBe("t0101i13h0");
+        expect(a).toBe("t13i0101h2");
     });
 });

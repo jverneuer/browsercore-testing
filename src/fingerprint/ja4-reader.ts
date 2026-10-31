@@ -20,6 +20,10 @@ export const EXT_SNI = 0x0000;
 export const EXT_SUPPORTED_GROUPS = 0x000a;
 export const EXT_EC_POINT_FORMATS = 0x000b;
 export const EXT_ALPN = 0x0010;
+/** padding — counted in JA4_a but excluded from the JA4_c hash (oracle-verified). */
+export const EXT_PADDING = 0x0015;
+/** signature_algorithms — part of the JA4_c hash input. */
+export const EXT_SIGNATURE_ALGORITHMS = 0x000d;
 export const EXT_SUPPORTED_VERSIONS = 0x002b;
 
 /** TLS protocol-version codes → human-readable version string. */

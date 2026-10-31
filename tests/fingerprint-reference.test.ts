@@ -17,7 +17,7 @@
  *    cipher / extension / group order (sourced from a tls.peet.ws capture)
  *    must yield the published JA3 digest `fb519300321e7e157792ac8d3a77e9ee`
  *    (GREASE-stripped, the form peet.ws publishes).
- * 3. JA4 format — the four-part JA4 tag from the same ClientHello must match
+ * 3. JA4 format — the three-part JA4 tag from the same ClientHello must match
  *    the canonical shape, with the connection prefix encoding the correct
  *    cipher/extension counts, SNI flag and ALPN code.
  *
@@ -228,10 +228,10 @@ describe("computeJa3 — reference validation against Chrome 131", () => {
 // --- 3. JA4 format validation (Chrome 131) ------------------------------
 
 /** Canonical JA4 tag shape: t{cc}{ee}{sni}{ver}{alpn}_12hex_12hex_12hex. */
-const JA4_TAG_RE = /^t\d{2}\d{2}[di]\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}_[a-z0-9]{12}$/;
+const JA4_TAG_RE = /^t\d{2}[di]\d{2}\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}$/;
 
 describe("computeJa4 — Chrome 131 tag format", () => {
-    it("emits a well-formed four-part JA4 tag", () => {
+    it("emits a well-formed three-part JA4 tag", () => {
         const { tag } = computeJa4Fingerprint(chrome131ClientHello());
         expect(tag).toMatch(JA4_TAG_RE);
     });
@@ -243,23 +243,27 @@ describe("computeJa4 — Chrome 131 tag format", () => {
         expect(a).toContain("15");
         expect(a).toContain("16");
         expect(a).toContain("d");
-        expect(a).toMatch(/hh$/);
+        expect(a).toMatch(/h2$/);
     });
 
     it("JA4_b is the SHA-256-trunc of the sorted non-GREASE cipher suites", () => {
         const { b } = computeJa4Fingerprint(chrome131ClientHello());
         const knownCiphers = [47, 53, 156, 157, 4865, 4866, 4867, 49171, 49172, 49195, 49196, 49199, 49200, 52392, 52393];
         const expected = sha256First12(
-            [...knownCiphers].sort((x, y) => x - y).map(hex4).join(""),
+            [...knownCiphers].sort((x, y) => x - y).map(hex4).join(","),
         );
         expect(b).toBe(expected);
     });
 
-    it("JA4_c is the SHA-256-trunc of sorted extensions excluding SNI and ALPN", () => {
+    it("JA4_c hashes sorted extensions (minus SNI/ALPN/padding) plus wire-order signature algorithms", () => {
         const { c } = computeJa4Fingerprint(chrome131ClientHello());
         const knownExts = [5, 10, 11, 13, 18, 23, 27, 35, 43, 45, 51, 17513, 65037, 65281];
-        const expected = sha256First12(knownExts.sort((x, y) => x - y).map(hex4).join(""));
-        expect(c).toBe(expected);
+        const parsed = parseJa4ClientHello(chrome131ClientHello());
+        const input =
+            knownExts.sort((x, y) => x - y).map(hex4).join(",") +
+            "_" +
+            parsed.signatureAlgorithms.map(hex4).join(",");
+        expect(c).toBe(sha256First12(input));
     });
 
     it("JA4_f is a 12-hex digest derived from the raw parsed fields", () => {

@@ -73,7 +73,7 @@ describe("CurlImpersonateProvider (mock binary)", () => {
         expect(fp.ja3).toMatch(/^[0-9a-f]{32}$/);
         expect(fp.ja4).toContain("_"); // canonical tag has three underscores
         // protocolVersion is ja4.tag.slice(5,7): SNI flag + leading version digit.
-        expect(fp.protocolVersion).toBe("d1");
+        expect(fp.protocolVersion).toBe("13");
     });
 
     it("throws ReferenceError when the binary is missing", async () => {

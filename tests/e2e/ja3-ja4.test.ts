@@ -35,15 +35,15 @@ interface GoldenFingerprint {
 const REAL_GOLDEN: Readonly<Record<string, GoldenFingerprint>> = {
     "chrome-131/tls/client_hello": {
         ja3: "ff0f40917e49fe7c78a7135fa409210a",
-        ja4a: "t1516d12hh",
+        ja4a: "t13d1516h2",
     },
     "firefox-133/tls/client_hello": {
         ja3: "2d692a4485ca2f5f2b10ecb2d2909ad3",
-        ja4a: "t1716d12hh",
+        ja4a: "t13d1716h2",
     },
     "safari-17/tls/client_hello": {
         ja3: "47032e00991c3937653c717e87ee499c",
-        ja4a: "t2014d12hh",
+        ja4a: "t13d2014h2",
     },
 } as const;
 
@@ -82,7 +82,7 @@ describe("T8 — JA4 t part matches golden (real captures)", () => {
 
             const ja4 = computeJa4(capture.bytes);
             // Structural: four "_" -separated segments.
-            expect(ja4.split("_")).toHaveLength(4);
+            expect(ja4.split("_")).toHaveLength(3);
 
             const tag = ja4TagToTag(ja4);
             expect(tag).toBe(expected.ja4a);
