@@ -89,7 +89,7 @@ export function fingerprintFromTlsCapture(capture: GoldenCapture): Fingerprint {
         ja4: ja4.tag,
         alpn,
         cipherSuite: cipherSuiteName(ja4.tag),
-        protocolVersion: ja4.tag.slice(5, 7) || "unknown",
+        protocolVersion: ja4.tag.slice(1, 3) || "unknown",
         signatureAlgorithms,
         ellipticCurves,
     };

@@ -13,7 +13,7 @@
  *   JA4_f   raw-fields hash    — TLS version, ciphers, extensions, supported
  *                                groups, EC point formats, SHA-256, first 12 hex.
  *
- * The concatenated `JA4_a_JA4_b_JA4_c_JA4_f` string is the canonical JA4 tag.
+ * The concatenated `JA4_a_JA4_b_JA4_c` string is the canonical JA4 tag.
  *
  * JA4H (the HTTP-layer sibling) is computed separately in {@link ./ja4h.ts}.
  *
@@ -33,6 +33,9 @@ import {
     readEcPointFormats,
     readSupportedGroups,
     tlsVersionLabel,
+    EXT_SUPPORTED_VERSIONS,
+    EXT_SIGNATURE_ALGORITHMS,
+    EXT_PADDING,
     uint16,
     uint24,
 } from "./ja4-reader.js";
@@ -58,6 +61,8 @@ export interface Ja4ClientHello {
     readonly supportedGroups: readonly number[];
     readonly ecPointFormats: readonly number[];
     readonly alpnRaw: string;
+    /** Non-GREASE signature_algorithms (ext 13), as offered. */
+    readonly signatureAlgorithms: readonly number[];
 }
 
 /** The four computed JA4 parts. */
@@ -66,7 +71,7 @@ export interface Ja4Fingerprint {
     readonly b: string;
     readonly c: string;
     readonly f: string;
-    /** Canonical `JA4_a_JA4_b_JA4_c_JA4_f` tag. */
+    /** Canonical `JA4_a_JA4_b_JA4_c` tag (the public/oracle form). */
     readonly tag: string;
 }
 
@@ -79,16 +84,21 @@ export function sha256First12(input: string): string {
     return createHash("sha256").update(input).digest("hex").slice(0, 12);
 }
 
-/** ALPN code: first char of first ALPN + first char of last ALPN, or "00". */
+/**
+ * ALPN code per the FoxIO JA4 spec: the FIRST offered protocol, first and
+ * last character ("h2" -> "h2"). Using the first char of the LAST protocol
+ * made "h2,http/1.1" hash as "hh" — no oracle reports that.
+ */
 function alpnCode(alpnRaw: string): string {
     if (alpnRaw.length === 0) {
         return "00";
     }
-    const protocols = alpnRaw.split(",");
-    const first = protocols[0] ?? "";
-    const last = protocols.at(-1) ?? "";
-    const a = first.length > 0 ? first[0] ?? "0" : "0";
-    const b = last.length > 0 ? last[0] ?? "0" : "0";
+    const first = alpnRaw.split(",")[0] ?? "";
+    if (first.length === 0) {
+        return "00";
+    }
+    const a = first[0] ?? "0";
+    const b = first[first.length - 1] ?? "0";
     return `${a}${b}`.toLowerCase();
 }
 
@@ -187,10 +197,13 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
         throw new Ja4ParseError("ClientHello truncated at compression methods length");
     }
     pos += 1 + compLen;
+    // Highest version from supported_versions (43); 0 = extension absent.
+    let maxSupportedVersion = 0;
+    const signatureAlgorithms: number[] = [];
     if (pos + 2 > end) {
         // No extensions present.
         return {
-            tlsVersion: tlsVersionLabel(versionCode),
+            tlsVersion: tlsVersionLabel(maxSupportedVersion > 0 ? maxSupportedVersion : versionCode),
             versionCode,
             sniPresent: false,
             cipherSuites,
@@ -198,6 +211,7 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
             supportedGroups: [],
             ecPointFormats: [],
             alpnRaw: "",
+            signatureAlgorithms,
         };
     }
     // extensions(variable)
@@ -232,15 +246,38 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
             }
         } else if (extType === EXT_ALPN && extLen >= 2) {
             alpnRaw = readAlpnProtocols(clientHello, pos);
+        } else if (extType === EXT_SIGNATURE_ALGORITHMS && extLen >= 2) {
+            // JA4_c hashes the signature algorithms too (after '_').
+            const listLen = uint16(clientHello, pos);
+            const usable = Math.min(listLen, extLen - 2, clientHello.length - pos - 2);
+            for (let i = 0; i + 1 < usable; i += 2) {
+                const alg = uint16(clientHello, pos + 2 + i);
+                if (!GREASE_VALUES.has(alg)) {
+                    signatureAlgorithms.push(alg);
+                }
+            }
+        } else if (extType === EXT_SUPPORTED_VERSIONS && extLen >= 1) {
+            // JA4_a uses the HIGHEST version from supported_versions (43),
+            // NOT the legacy client_version (0x0303 labels "12" and would
+            // make every TLS 1.3 hello read as "12"). Body: 1-byte count of
+            // 2-byte versions; GREASE values ignored.
+            const count = clientHello[pos];
+            if (count !== undefined) {
+                const usable = Math.min(count * 2, extLen - 1, clientHello.length - pos - 1);
+                for (let i = 0; i + 1 < usable; i += 2) {
+                    const v = uint16(clientHello, pos + 1 + i);
+                    if (!GREASE_VALUES.has(v) && v > maxSupportedVersion) {
+                        maxSupportedVersion = v;
+                    }
+                }
+            }
         }
-        // EXT_SUPPORTED_VERSIONS: JA4 uses the highest supported version from
-        // this extension — no parsing needed here.
 
         pos += extLen;
     }
 
     return {
-        tlsVersion: tlsVersionLabel(versionCode),
+        tlsVersion: tlsVersionLabel(maxSupportedVersion > 0 ? maxSupportedVersion : versionCode),
         versionCode,
         sniPresent,
         cipherSuites,
@@ -248,11 +285,12 @@ export function parseJa4ClientHello(clientHello: Uint8Array): Ja4ClientHello {
         supportedGroups,
         ecPointFormats,
         alpnRaw,
+        signatureAlgorithms,
     };
 }
 
 /**
- * Compute the canonical JA4 tag (`JA4_a_JA4_b_JA4_c_JA4_f`) from a ClientHello.
+ * Compute the canonical JA4 tag (`JA4_a_JA4_b_JA4_c`) from a ClientHello.
  *
  * This is the string form used by the public API (index.ts) and the reference
  * provider. Use {@link computeJa4Fingerprint} when you need the parts.
@@ -271,23 +309,31 @@ export function computeJa4(clientHello: Uint8Array): string {
 export function computeJa4Fingerprint(clientHello: Uint8Array): Ja4Fingerprint {
     const hello = parseJa4ClientHello(clientHello);
 
-    // JA4_a: t{ciphers:02d}{exts:02d}{sni_flag}{version}{alpn}
+    // JA4_a (FoxIO spec order): t{version}{sni_flag}{ciphers:02d}{exts:02d}{alpn}
     const sniFlag = hello.sniPresent ? "d" : "i";
-    const a = `t${hello.cipherSuites.length.toString().padStart(2, "0")}${hello.extensions.length
+    const a = `t${hello.tlsVersion}${sniFlag}${hello.cipherSuites.length
         .toString()
-        .padStart(2, "0")}${sniFlag}${hello.tlsVersion}${alpnCode(hello.alpnRaw)}`;
+        .padStart(2, "0")}${hello.extensions.length.toString().padStart(2, "0")}${alpnCode(hello.alpnRaw)}`;
 
-    // JA4_b: sorted cipher suites, 4-char hex, SHA-256, first 12 hex.
-    const sortedCiphers = [...hello.cipherSuites].sort((x, y) => x - y).map((s) => hex4(s)).join("");
+    // JA4_b: sorted non-GREASE cipher suites, 4-char hex codes, COMMA-joined
+    // (the comma-join is load-bearing: the bare concatenation hashes
+    // differently from every oracle).
+    const sortedCiphers = [...hello.cipherSuites].sort((x, y) => x - y).map((s) => hex4(s)).join(",");
     const b = sortedCiphers.length > 0 ? sha256First12(sortedCiphers) : "000000000000";
 
-    // JA4_c: sorted extensions (excluding SNI=0, ALPN=16), 4-char hex.
-    const filteredExts = hello.extensions
-        .filter((e) => e !== EXT_SNI && e !== EXT_ALPN)
+    // JA4_c: sorted extensions (excluding SNI=0, ALPN=16, GREASE already
+    // filtered), 4-char hex, comma-joined, then '_' and the comma-joined
+    // signature algorithms — the full spec input.
+    const extCodes = hello.extensions
+        .filter((e) => e !== EXT_SNI && e !== EXT_ALPN && e !== EXT_PADDING)
         .sort((x, y) => x - y)
         .map((e) => hex4(e))
-        .join("");
-    const c = filteredExts.length > 0 ? sha256First12(filteredExts) : "000000000000";
+        .join(",");
+    // Signature algorithms hash in WIRE ORDER (FoxIO spec) — verified
+    // against three oracle golds; sorting them changes the digest.
+    const sigCodes = [...hello.signatureAlgorithms].map((e) => hex4(e)).join(",");
+    const cInput = sigCodes.length > 0 ? `${extCodes}_${sigCodes}` : extCodes;
+    const c = cInput.length > 0 ? sha256First12(cInput) : "000000000000";
 
     // JA4_f: raw fields — version, ciphers, extensions, supported groups, ec.
     // Use the parsed client_version (`hello.versionCode`), NOT the first two
@@ -304,5 +350,6 @@ export function computeJa4Fingerprint(clientHello: Uint8Array): Ja4Fingerprint {
     ].join("");
     const f = sha256First12(raw);
 
-    return { a, b, c, f, tag: `${a}_${b}_${c}_${f}` };
+    // Public/oracle form is a_b_c; f (raw-field hash) stays on the object.
+    return { a, b, c, f, tag: `${a}_${b}_${c}` };
 }

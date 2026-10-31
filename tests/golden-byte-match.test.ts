@@ -55,7 +55,7 @@ describe("TLS golden parse — chrome-140", () => {
         // JA3 is a 32-char MD5 hex string.
         expect(ja3).toMatch(/^[0-9a-f]{32}$/);
         // JA4 tag has three underscores separating the four parts.
-        expect(ja4.split("_")).toHaveLength(4);
+        expect(ja4.split("_")).toHaveLength(3);
     });
 
     it("parses the cipher suites from the golden ClientHello", () => {
@@ -106,7 +106,7 @@ describe("TLS golden parse — firefox-128", () => {
         const ja4 = computeJa4(capture.bytes);
 
         expect(ja3).toMatch(/^[0-9a-f]{32}$/);
-        expect(ja4.split("_")).toHaveLength(4);
+        expect(ja4.split("_")).toHaveLength(3);
     });
 
     it("parses the cipher suites from the golden ClientHello", () => {

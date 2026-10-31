@@ -158,7 +158,7 @@ describe("parseJa4ClientHello — no-extensions early return", () => {
         const hello = buildBare([VERSION, RANDOM, NO_SESSION, ONE_CIPHER, NO_COMP]);
         const { a } = computeJa4Fingerprint(hello);
         // 1 cipher, 0 extensions, no SNI -> "i", TLS 1.3 -> "13", no ALPN -> "00".
-        expect(a).toBe("t0100i1300");
+        expect(a).toBe("t13i010000");
     });
 });
 
@@ -190,7 +190,7 @@ describe("parseJa4ClientHello — version + ALPN edge cases", () => {
         const parsed = parseJa4ClientHello(hello);
         expect(parsed.alpnRaw).toBe("h2");
         const { a } = computeJa4Fingerprint(hello);
-        expect(a.endsWith("hh")).toBe(true);
+        expect(a.endsWith("h2")).toBe(true);
     });
 
     it("encodes no-SNI with the 'i' flag", () => {
@@ -325,7 +325,7 @@ describe("computeJa4 — record-wrapped ClientHello", () => {
         // JA4_f hashes the raw first 2 bytes of the input buffer, which differ
         // (0x16 0x03 for the record header vs 0x01 .. for the bare handshake),
         // so the f part is expected to differ.
-        expect(wrappedFp.tag).toMatch(/^t\d{2}\d{2}[di]\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}_[a-z0-9]{12}$/);
+        expect(wrappedFp.tag).toMatch(/^t\d{2}[di]\d{2}\d{2}[a-z0-9]{2}_[a-z0-9]{12}_[a-z0-9]{12}$/);
     });
 
     it("throws Ja4ParseError for malformed input", () => {
