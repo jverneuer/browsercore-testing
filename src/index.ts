@@ -28,9 +28,22 @@ export type {
 export { assertNever, bytesToHex, compareBytes, createId } from "./utils.js";
 
 // Test-category model (docs/TEST-SUITE.md) + the 17 vitest suite ids.
+// NOTE: the categories barrel is deliberately NOT re-exported — every module
+// in it calls vitest describe()/it.todo() at import time, so an eager export
+// made importing @browsercore/testing from inside any vitest context throw
+// ("Calling the suite function inside test function is not allowed").
+// Consumers that want the suites import "@browsercore/testing/categories"
+// explicitly (outside test bodies).
 export { TestCategory } from "./types.js";
 export type { SpecTestCase, TestCategoryId, TestRun, TestStatus } from "./types.js";
-export * as categories from "./categories/index.js";
+
+/**
+ * The vitest category suites (todo skeletons). Deferred via a function so the
+ * describe() calls only run when a consumer explicitly asks for them.
+ */
+export async function loadCategorySuites(): Promise<unknown> {
+    return import("./categories/index.js");
+}
 
 // Randomized-field comparison (Cat 14 core) + capture manifest.
 export { compareBytesWithIgnore } from "./utils.js";
