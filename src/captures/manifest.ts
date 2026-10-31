@@ -85,4 +85,56 @@ export const captures: readonly CaptureEntry[] = [
             createdAt: "2026-08-02T00:00:00Z",
         },
     ),
+    // ── REAL wire captures (curl-impersonate, oracle-verified) ──────────────
+    // Byte-for-byte real ClientHellos with oracle-verified fingerprints
+    // (tls.peet.ws/api/all reference JSONs sit beside each capture). Unlike
+    // the synthetic stubs above, these are what golden comparisons should
+    // run against. Registered 0.2.5 — they existed on disk since August but
+    // loadCaptures() never surfaced them.
+    entry(
+        "chrome-131/tls/client_hello.bin",
+        {
+            source: "curl-impersonate",
+            profile: id("chrome-131"),
+            protocol: "tls",
+            record: "client_hello",
+            description:
+                "REAL chrome-131 ClientHello (1753B) via curl-impersonate against tls.peet.ws. Oracle gold: ja4 t13d1516h2_8daaf6152771_02713d6af862, ja3_hash fb519300321e7e157792ac8d3a77e9ee.",
+            randomizedFields: [
+                { byteOffset: 12, length: 32, reason: "random" },
+                { byteOffset: 112, length: 1641, reason: "grease" },
+            ],
+            createdAt: "2026-08-04T00:28:49Z",
+        },
+    ),
+    entry(
+        "firefox-133/tls/client_hello.bin",
+        {
+            source: "curl-impersonate",
+            profile: id("firefox-133"),
+            protocol: "tls",
+            record: "client_hello",
+            description:
+                "REAL firefox-133 ClientHello via curl-impersonate. Oracle gold: ja4 t13d1716h2_5b57614c22b0_eeeea6562960, ja3_hash 2d692a4485ca2f5f2b10ecb2d2909ad3.",
+            randomizedFields: [
+                { byteOffset: 12, length: 32, reason: "random" },
+            ],
+            createdAt: "2026-08-04T00:00:00Z",
+        },
+    ),
+    entry(
+        "safari-17/tls/client_hello.bin",
+        {
+            source: "curl-impersonate",
+            profile: id("safari-17"),
+            protocol: "tls",
+            record: "client_hello",
+            description:
+                "REAL safari-17 ClientHello via curl-impersonate. Oracle gold: ja4 t13d2014h2_a09f3c656075_874d27d7ca63, ja3_hash 773906b0efdefa24a7f2b8eb6985bf37.",
+            randomizedFields: [
+                { byteOffset: 12, length: 32, reason: "random" },
+            ],
+            createdAt: "2026-08-04T00:00:00Z",
+        },
+    ),
 ];
