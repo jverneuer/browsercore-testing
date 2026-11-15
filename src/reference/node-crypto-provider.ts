@@ -13,6 +13,9 @@
  * - HMAC via node:crypto.createHmac
  * - AEAD via node:crypto.createCipheriv/createDecipheriv (GCM, CCM, ChaCha20)
  * - X25519 via NobleX25519Backend (pure JS, no native binding)
+ * - ML-KEM-768 via NobleMlKem768Backend (pure JS, FIPS 203 — added for the
+ *   X25519MLKEM768 hybrid key-share group in @browsercore/crypto 0.2.5 /
+ *   @browsercore/tls 0.4.13)
  * - ECDH via node:crypto.ECDH
  * - Signatures via node:crypto.createVerify
  * - Random bytes via node:crypto.randomBytes
@@ -36,11 +39,13 @@ import type {
     EcdhCurve,
     EcdhKeyPair,
     HashId,
+    MLKEM768KeyPair,
     X25519KeyPair,
 } from "@browsercore/crypto";
-import { NobleX25519Backend } from "@browsercore/crypto";
+import { NobleMlKem768Backend, NobleX25519Backend } from "@browsercore/crypto";
 
 const noble = new NobleX25519Backend();
+const mlkem = new NobleMlKem768Backend();
 
 /** Curve → node:crypto named curve + expected coordinate length. */
 const ECDH_CURVE_PARAMS: Record<EcdhCurve, { readonly nodeCurve: string; readonly coordLen: number }> = {
@@ -184,6 +189,30 @@ export const nodeCryptoProvider: CryptoProvider = {
 
     x25519SharedSecret(secretKey: Uint8Array, peerPublicKey: Uint8Array): Uint8Array {
         return noble.sharedSecret(secretKey, peerPublicKey);
+    },
+
+    mlkem768GenerateKeyPair(): MLKEM768KeyPair {
+        return mlkem.generateKeyPair();
+    },
+
+    mlkem768Decapsulate(secretKey: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+        return mlkem.decapsulate(secretKey, ciphertext);
+    },
+
+    x25519MLKEM768SharedSecret(
+        x25519SecretKey: Uint8Array,
+        x25519PeerPublicKey: Uint8Array,
+        mlkemSecretKey: Uint8Array,
+        mlkemCiphertext: Uint8Array,
+    ): Uint8Array {
+        // draft-ietf-tls-ecdhe-mlkem: mlkem_shared_secret || x25519_shared_secret
+        // (post-quantum first) — order verified against OpenSSL's X25519MLKEM768.
+        const mlkemShared = mlkem.decapsulate(mlkemSecretKey, mlkemCiphertext);
+        const x25519Shared = noble.sharedSecret(x25519SecretKey, x25519PeerPublicKey);
+        const hybrid = new Uint8Array(mlkemShared.length + x25519Shared.length);
+        hybrid.set(mlkemShared, 0);
+        hybrid.set(x25519Shared, mlkemShared.length);
+        return hybrid;
     },
 
     ecdhGenerateKeyPair(curve: EcdhCurve): EcdhKeyPair {
