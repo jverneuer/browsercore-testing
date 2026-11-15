@@ -3,13 +3,13 @@
  *
  * These tests exercise the core Category 2/3/6 infrastructure: loading
  * golden captures, parsing them, computing fingerprints, and comparing bytes
- * with the ignore-list of randomized fields. The in-repo captures are
- * synthetic (see tests/fixtures/mock-curl-impersonate.sh) — they are
- * deterministic, minimal ClientHellos / SETTINGS frames used for offline
- * testing, not full real-browser captures. So these tests verify the
- * infrastructure works correctly; byte-for-byte profile validation against
- * real captures is covered by the RFC compliance suites (which use the
- * profile data as the source of truth).
+ * with the ignore-list of randomized fields. The chrome-140 / firefox-128 TLS
+ * captures remain synthetic stubs (see tests/fixtures/mock-curl-impersonate.sh
+ * and the stub-guard in tests/e2e/ja3-ja4.test.ts); the chrome-140 HTTP/2
+ * SETTINGS golden is REAL capture data since 0.2.9 (oracle-verified against
+ * captures/chrome-131/oracle_capture.reference.json). Emission-vs-golden
+ * validation — the REAL stacks producing bytes compared against these goldens
+ * — lives in tests/e2e/emission-*.test.ts.
  */
 
 import { describe, expect, it } from "vitest";
@@ -132,6 +132,8 @@ describe("HTTP/2 golden byte-match — chrome-140", () => {
         const capture = loadGolden(CHROME_HTTP2);
 
         // HTTP/2 frame header: 3-byte length + 1-byte type + 1-byte flags + 4-byte stream id.
+        const frameLength = (capture.bytes[0]! << 16) | (capture.bytes[1]! << 8) | capture.bytes[2]!;
+        expect(frameLength).toBe(24); // real Chrome sends 4 entries × 6 bytes
         const frameType = capture.bytes[3];
         expect(frameType).toBe(0x4); // SETTINGS
 
@@ -145,9 +147,17 @@ describe("HTTP/2 golden byte-match — chrome-140", () => {
             settings.set(id, value >>> 0);
         }
 
-        // The synthetic capture advertises MAX_CONCURRENT_STREAMS (id 3) = 100
-        // and INITIAL_WINDOW_SIZE (id 4) = 65536.
-        expect(settings.get(3)).toBe(100); // MAX_CONCURRENT_STREAMS
-        expect(settings.get(4)).toBe(65536); // INITIAL_WINDOW_SIZE
+        // Real Chrome SETTINGS (oracle: captures/chrome-131/oracle_capture.reference.json
+        // http2.akamai_fingerprint "1:65536;2:0;4:6291456;6:262144"; identical for
+        // chrome-140 per @browsercore/profiles 0.2.4). Order is asserted via the
+        // emission test; here we assert the parsed value set.
+        expect(settings.size).toBe(4);
+        expect(settings.get(1)).toBe(65536); // HEADER_TABLE_SIZE
+        expect(settings.get(2)).toBe(0); // ENABLE_PUSH (disabled)
+        expect(settings.get(4)).toBe(6291456); // INITIAL_WINDOW_SIZE
+        expect(settings.get(6)).toBe(262144); // MAX_HEADER_LIST_SIZE
+        // Real Chrome does NOT advertise MAX_CONCURRENT_STREAMS (id 3) — the old
+        // synthetic stub did; its presence would be a fingerprint divergence.
+        expect(settings.has(3)).toBe(false);
     });
 });

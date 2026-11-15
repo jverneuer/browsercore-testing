@@ -3,7 +3,7 @@
     "profile": "chrome-140",
     "protocol": "http2",
     "record": "settings",
-    "description": "First HTTP/2 SETTINGS frame sent by curl-impersonate --chrome-140. HTTP/2 SETTINGS are not randomized, so the ignore-list is empty.",
+    "description": "First HTTP/2 SETTINGS frame sent by real Chrome. 4-entry 24-byte payload: 1:65536;2:0;4:6291456;6:262144. Regenerated 0.2.9 from the oracle ground truth (captures/chrome-131/oracle_capture.reference.json http2.sent_frames[0] + http2.akamai_fingerprint) — Chrome's SETTINGS bytes are identical from 131 through 140 (byte-identical to captures/chrome-131/http2/settings.bin, and match @browsercore/profiles 0.2.4 chrome-140 settings/settingsOrder). Replaces the synthetic stub ({3:100,4:65536}) that only self-compared. HTTP/2 SETTINGS are not randomized, so the ignore-list is empty.",
     "randomizedFields": [],
     "createdAt": "2026-08-02T00:00:00Z"
 }

@@ -344,24 +344,27 @@ describe("profile header configuration sanity", () => {
     });
 });
 
-describe("parseHttp2Settings — odd-byte payload boundary (rfcTests.ts lines 55-60)", () => {
-    it("parses a SETTINGS payload with an odd number of bytes (not multiple of 6)", () => {
-        // The chrome-140 SETTINGS capture's payload is 12 bytes (2 settings).
-        // runHttp2Compliance parses it via parseHttp2Settings. With 12 bytes,
-        // the loop runs i=0 and i=6 (both `i + 5 < payload.length` true),
-        // then exits at i=12 (`i + 5 < payload.length` false) — exercising
-        // the loop boundary branch (line 55).
+describe("parseHttp2Settings — loop-boundary on the SETTINGS payload (rfcTests.ts lines 55-60)", () => {
+    it("parses every whole 6-byte setting and stops at the payload boundary", () => {
+        // Since 0.2.9 the chrome-140 SETTINGS golden is REAL capture data
+        // (oracle: captures/chrome-131/oracle_capture.reference.json): a 24-byte
+        // payload carrying 4 settings. runHttp2Compliance parses it via
+        // parseHttp2Settings — the loop runs i=0,6,12,18 (all with
+        // `i + 5 < payload.length` true), then exits at i=24 — exercising the
+        // loop boundary branch (line 55).
         //
         // Each iteration reads 6 bytes with `payload[i+n] ?? 0`. Since all
         // accesses are in-bounds, the `?? 0` fallbacks (lines 56-60) are not
         // taken — but the loop boundary itself IS exercised, and the parsed
-        // settings reflect the odd-byte-safe behavior (no partial setting
+        // settings reflect the boundary-safe behavior (no partial setting
         // from trailing bytes).
         const result = runHttp2Compliance("http2_chrome_odd" as never, "chrome-140" as ProfileId);
         expect(typeof result.pass).toBe("boolean");
-        // Verify the settings were parsed: MAX_CONCURRENT_STREAMS (id 3) = 100.
+        // Verify the real settings were parsed (oracle ground truth):
+        // HEADER_TABLE_SIZE=65536, INITIAL_WINDOW_SIZE=6291456.
         const actual = result.actual as Record<string, number>;
-        expect(actual["3"]).toBe(100);
+        expect(actual["1"]).toBe(65536);
+        expect(actual["4"]).toBe(6291456);
     });
 });
 
@@ -417,11 +420,44 @@ describe("runTlsCompliance — validation.ok true branch (rfcTests.ts line 131)"
 
 describe("runHttp2Compliance — settings mismatch failure message (rfcTests.ts line 189)", () => {
     it("reports a diff when settings mismatch (line 189 false branch)", () => {
-        // The chrome-140 SETTINGS capture advertises INITIAL_WINDOW_SIZE=65536
-        // but the chrome-140 profile expects 6291456. This mismatch triggers
-        // the `failed.length === 0 ? undefined : ...` false branch (line 189
+        // Since 0.2.9 the chrome-140 SETTINGS golden matches the chrome-140
+        // profile (both are the oracle's 1:65536;2:0;4:6291456;6:262144), so a
+        // mismatch can no longer be produced with the built-in chrome-140
+        // pairing. Register a "chrome-131" profile whose declared settings
+        // deliberately disagree with the REAL chrome-131 capture on disk
+        // (captures/chrome-131/http2/settings.bin carries
+        // INITIAL_WINDOW_SIZE=6291456) to cover the
+        // `failed.length === 0 ? undefined : ...` false branch (line 189
         // arm 1), producing a failure message listing the mismatched settings.
-        const result = runHttp2Compliance("http2_mismatch" as never, "chrome-140" as ProfileId);
+        registerProfile({
+            tls: {
+                cipherSuites: ["TLS_AES_128_GCM_SHA256"],
+                extensionOrder: [],
+                supportedVersions: [],
+                keyShareGroups: [],
+                signatureAlgorithms: [],
+                grease: false,
+            },
+            http2: {
+                // Real chrome-131 capture: 4:6291456 — this profile claims a
+                // different value, so the INITIAL_WINDOW_SIZE check fails.
+                settings: { initialWindowSize: 12345 },
+                initialWindowSize: 12345,
+                maxFrameSize: 16384,
+                headerTableSize: 65536,
+                weight: 256,
+            },
+            id: "chrome-131" as ProfileId,
+            name: "chrome",
+            version: "131.0.0.0",
+            http1: {
+                defaultHeaders: { host: "example.com" },
+                headerOrder: ["host"],
+                connection: "keep-alive",
+                acceptEncoding: "gzip",
+            },
+        });
+        const result = runHttp2Compliance("http2_mismatch" as never, "chrome-131" as ProfileId);
         expect(result.pass).toBe(false);
         expect(result.diff).toBeDefined();
         expect(result.diff).toContain("Mismatched");
