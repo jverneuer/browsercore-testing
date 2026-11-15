@@ -3,10 +3,10 @@
  *
  * Companion to emission-h2-prelude.test.ts (0.2.9): goldens that only
  * self-compare catch nothing. This file drives the REAL `@browsercore/tls`
- * 0.4.14 handshake (`connectTls` → `runHandshake` → the production
+ * 0.4.15 handshake (`connectTls` → `runHandshake` → the production
  * `buildClientHello` + record-layer write path) over a fake transport, with
  * the chrome-140 profile from `@browsercore/profiles` 0.2.4 and a
- * deterministic random source so the six RFC 8701 GREASE sentinels are stable,
+ * deterministic random source so the RFC 8701 GREASE sentinels are stable,
  * and asserts the emitted structure against ORACLE ground truth:
  *
  *   - captures/chrome-131/tls/client_hello.bin — the golden real capture:
@@ -22,10 +22,16 @@
  * The chrome-140 profile (profiles 0.2.4) splits keyShareGroups
  * (X25519MLKEM768+x25519, what key_share CARRIES) from
  * keyShareAdvertisedGroups (+secp256r1+secp384r1, what supported_groups
- * ADVERTISES) — tls 0.4.14 consumes that split via
- * ClientHelloConfig.supportedGroups. (Finding: @browsercore/fetch 0.2.17 does
- * not forward the split yet, so this browser-correct emission is only
- * observable driving tls directly.)
+ * ADVERTISES) — tls consumes that split via ClientHelloConfig.supportedGroups,
+ * and since @browsercore/fetch 0.2.18 forwards keyShareAdvertisedGroups into
+ * the TLS config, the split flows through fetch too (0.2.17 dropped it).
+ *
+ * GREASE coupling (tls 0.4.15): the key_share GREASE entry and the
+ * supported_groups GREASE head carry ONE derived value (not two independent
+ * draws). Strict servers enforce key_share groups ⊆ supported_groups;
+ * independently drawn sentinels violated that and drew illegal_parameter
+ * rejections, which 0.4.15 fixed by deriving the supported_groups sentinel
+ * from the key_share one.
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -43,11 +49,11 @@ import { CaptureTransport, captureEventProvider } from "./emission-fakes.js";
 const SERVER_NAME = "tls.peet.ws";
 
 /**
- * Deterministic xorshift32 seed for GREASE draws. With this seed the six
- * per-slot sentinels emitted on the wire are 0x8a8a (cipher), 0xbaba (leading
- * ext), 0xaaaa (key_share), 0xeaea (supported_groups), 0x5a5a
- * (supported_versions), 0x9a9a (trailing ext) — pairwise distinct, matching
- * how real Chrome's independent draws landed in the golden chrome-131 capture
+ * Deterministic xorshift32 seed for GREASE draws. With this seed the emitted
+ * sentinels are 0x8a8a (cipher), 0xbaba (leading ext), 0xaaaa (key_share AND
+ * supported_groups — one coupled value, tls 0.4.15), 0xeaea
+ * (supported_versions), 0x5a5a (trailing ext): the four non-group slots are
+ * pairwise distinct, like the golden chrome-131 capture's independent draws
  * (cipher 0x5a5a, ext 0x4a4a, groups 0xcaca — no slot reuse).
  */
 const GREASE_SEED = 0x5eed1234;
@@ -112,10 +118,11 @@ describe("REAL ClientHello emission — chrome-140 vs oracle", () => {
         };
 
         // The chrome-140 ClientHello config exactly as the profile declares it
-        // (profiles 0.2.4): full cipher list including the GREASE placeholder
-        // slot, the keyShareGroups / keyShareAdvertisedGroups split, both
-        // advertised versions (oracle shape GREASE|0304|0303), and the
-        // profile's extension order + record padding.
+        // (profiles 0.2.4) — and as @browsercore/fetch 0.2.18 forwards it into
+        // connectTls: full cipher list including the GREASE placeholder slot,
+        // the keyShareGroups / keyShareAdvertisedGroups split, both advertised
+        // versions (oracle shape GREASE|0304|0303), and the profile's
+        // extension order + record padding.
         const config: ClientHelloConfig = {
             cipherSuites: profile.tls.cipherSuites,
             keyShareGroups: profile.tls.keyShareGroups,
@@ -156,7 +163,8 @@ describe("REAL ClientHello emission — chrome-140 vs oracle", () => {
     it("opens the initial ClientHello record with legacy version 0x0301", () => {
         // RFC 8446 §5.1: the first record may carry TLS 1.0's version — real
         // Chrome bytes `16 03 01` (golden captures/chrome-131/tls/client_hello.bin
-        // opens 16 03 01; tls 0.4.14 threads CLIENT_HELLO_RECORD_VERSION here).
+        // opens 16 03 01; tls threads CLIENT_HELLO_RECORD_VERSION here since
+        // 0.4.14).
         expect(record[0]).toBe(0x16); // Handshake content type
         expect(record[1]).toBe(0x03);
         expect(record[2]).toBe(0x01);
@@ -229,12 +237,16 @@ describe("REAL ClientHello emission — chrome-140 vs oracle", () => {
         expect(isGreaseValue(hello.cipherSuites[0]!)).toBe(true);
     });
 
-    it("draws the six GREASE sentinels independently and pairwise-distinctly", () => {
-        // Real Chrome draws each RFC 8701 slot independently (golden
-        // chrome-131: cipher 0x5a5a, ext 0x4a4a, key_share/supported_groups
-        // 0xcaca in one ClientHello). tls 0.4.14 draws one sentinel per slot;
-        // only the two extension slots are forbidden to collide (RFC 8446
-        // §4.2 duplicate-extension ban). With GREASE_SEED all six are distinct.
+    it("couples the key_share and supported_groups GREASE sentinels; other four slots distinct", () => {
+        // tls 0.4.15: the supported_groups sentinel is DERIVED from the
+        // key_share-group sentinel, not drawn independently — strict servers
+        // enforce key_share groups ⊆ supported_groups, and two independent
+        // sentinel draws violated that subset relation, drawing illegal_parameter
+        // rejections from strict peers. The golden chrome-131 capture shows the
+        // coupled shape too (key_share and supported_groups both 0xcaca).
+        // The remaining slots (cipher, leading ext, supported_versions,
+        // trailing ext) are independent draws, distinct like real Chrome's
+        // (golden chrome-131: cipher 0x5a5a, ext 0x4a4a, groups 0xcaca).
         const supportedVersions = hello.extensions.find((ext) => ext.type === 0x002b)!;
         const versionsBody: number[] = [];
         for (let i = 0; i < supportedVersions.data[0]! / 2; i++) {
@@ -250,21 +262,31 @@ describe("REAL ClientHello emission — chrome-140 vs oracle", () => {
             hello.extensions.find((ext) => ext.type === 0x0033)!,
         );
 
-        const sentinels: readonly number[] = [
+        const keyShareSentinel = keyShareEntries[0]!.group;
+        const supportedGroupsSentinel = supportedGroups[0]!;
+
+        // The group slots share ONE sentinel (derived, not drawn).
+        expect(supportedGroupsSentinel).toBe(keyShareSentinel);
+
+        const independentSlots: readonly number[] = [
             hello.cipherSuites[0]!, // cipher-list head
             hello.extensions[0]!.type, // leading extension
-            keyShareEntries[0]!.group, // key_share GREASE entry
-            supportedGroups[0]!, // supported_groups head
             versionsBody[0]!, // supported_versions head
             hello.extensions[hello.extensions.length - 1]!.type, // trailing extension
         ];
 
-        for (const sentinel of sentinels) {
+        for (const sentinel of [...independentSlots, keyShareSentinel]) {
             expect(isGreaseValue(sentinel)).toBe(true);
             expect(GREASE_VALUES).toContain(sentinel);
         }
-        // Pairwise distinct — six slots, six different sentinels.
-        expect(new Set(sentinels).size).toBe(6);
+        // The four independently drawn slots are pairwise distinct — and none
+        // collides with the coupled group sentinel (RFC 8446 §4.2 bans only
+        // duplicate EXTENSION types, but slot reuse would blunt the fingerprint
+        // signal real Chrome's independent draws provide).
+        expect(new Set(independentSlots).size).toBe(4);
+        for (const slot of independentSlots) {
+            expect(slot).not.toBe(keyShareSentinel);
+        }
         // The non-GREASE supported_versions tail is TLS 1.3 then TLS 1.2
         // (oracle: GREASE|TLS1.3|TLS1.2).
         expect(versionsBody.slice(1)).toEqual([0x0304, 0x0303]);

@@ -159,7 +159,7 @@ describe("REAL h2 emission — chrome-140 prelude vs oracle", () => {
             events: captureEventProvider(),
             crypto: nodeCryptoProvider,
             // Wired exactly as @browsercore/fetch's establishConnection h2
-            // branch wires it from the profile (dispatch.js, fetch 0.2.17):
+            // branch wires it from the profile (dispatch.js, fetch 0.2.18):
             initialSettings: profileSettingsMap(profile),
             settingsOrder: profile.http2.settingsOrder,
             settingsGrease: profile.http2.grease,
@@ -260,7 +260,7 @@ describe("REAL h2 emission — chrome-140 prelude vs oracle", () => {
         // Oracle pseudo-header order: :method,:authority,:scheme,:path.
         expect(names.slice(0, 4)).toEqual([...ORACLE_PSEUDO_ORDER]);
 
-        // RFC 9113 §8.3.6 / fetch 0.2.17: authority is carried by :authority —
+        // RFC 9113 §8.3.6 / fetch 0.2.18: authority is carried by :authority —
         // a `host` field on an h2 request is a live-confirmed WAF trigger.
         expect(names).not.toContain("host");
         expect(names).not.toContain(":host");
@@ -270,7 +270,7 @@ describe("REAL h2 emission — chrome-140 prelude vs oracle", () => {
         const priority = block.find((field) => field.name === "priority");
         expect(priority?.value).toBe("u=0, i");
 
-        // And the profile-driven accept-encoding default (fetch 0.2.17) too.
+        // And the profile-driven accept-encoding default (fetch 0.2.18) too.
         const acceptEncoding = block.find((field) => field.name === "accept-encoding");
         expect(acceptEncoding?.value).toBe(profile.http1.acceptEncoding);
     });
