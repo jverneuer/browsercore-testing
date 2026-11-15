@@ -64,7 +64,10 @@ export const captures: readonly CaptureEntry[] = [
             protocol: "http2",
             record: "settings",
             description:
-                "First HTTP/2 SETTINGS frame from curl-impersonate --chrome-140.",
+                "REAL Chrome SETTINGS (4-entry 24-byte payload 1:65536;2:0;4:6291456;6:262144), " +
+                "oracle-verified (captures/chrome-131/oracle_capture.reference.json sent_frames[0]; " +
+                "byte-identical to chrome-131 — Chrome's SETTINGS are unchanged 131→140). " +
+                "Regenerated 0.2.9; replaces the synthetic {3:100,4:65536} stub.",
             randomizedFields: [],
             createdAt: "2026-08-02T00:00:00Z",
         },
