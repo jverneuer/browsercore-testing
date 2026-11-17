@@ -117,6 +117,32 @@ const akamai = buildAkamaiFingerprint({
 `@browsercore/testing` sits at the very top — it depends on everything and nothing
 depends on it.
 
+## Stack versions
+
+The suite runs against the **platform-v2 stack**: a canonical `Clock` and the
+optional `Platform` / engine-injection surface defined in
+[`@browsercore/contracts`](https://github.com/jverneuer/browsercore-contracts)
+and assembled by [`browsersmith`](https://github.com/jverneuer/browsersmith),
+the composition root. Runtime capabilities (events, TCP, DNS, crypto,
+compression, time) are injected through the `Platform` object rather than
+reached from the protocol layers — so every stack under test stays deterministic
+and fake-friendly. Platform-v2 was a type/wiring/injection change only:
+nothing wire-visible moved, and golden captures plus emission expectations
+carry over unchanged.
+
+| Package | Version |
+| --- | --- |
+| `@browsercore/contracts` | 0.2.7 |
+| `@browsercore/transport` | 0.2.10 |
+| `@browsercore/crypto` | 0.2.7 |
+| `@browsercore/tls` | 0.4.17 |
+| `@browsercore/http1` | 0.2.6 |
+| `@browsercore/http2` | 0.2.14 |
+| `@browsercore/profiles` | 0.2.6 |
+| `@browsercore/cookies` | 0.2.3 |
+| `@browsercore/compression` | 0.2.2 |
+| `@browsercore/fetch` | 0.2.25 |
+
 ## Contributing
 
 Contributions are welcome — bug reports, reproductions, docs and code alike. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the full guide lives in the [browsersmith repo](https://github.com/jverneuer/browsersmith/blob/main/CONTRIBUTING.md). First timer? Check the [`good first issue`](https://github.com/jverneuer/browsercore-testing/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label. Security issues: [SECURITY.md](SECURITY.md), never a public issue.
