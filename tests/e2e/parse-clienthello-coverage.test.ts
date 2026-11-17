@@ -34,7 +34,6 @@ import {
     GREASE_SENTINELS,
     EXT,
     ClientHelloParseError,
-    type ParsedClientHello,
 } from "../../src/e2e/parse-clienthello.js";
 
 // --- helpers ------------------------------------------------------------
@@ -343,9 +342,6 @@ describe("parseAlpnProtocols", () => {
     it("parses the offered ALPN protocols in wire order", () => {
         const h2 = new TextEncoder().encode("h2");
         const http11 = new TextEncoder().encode("http/1.1");
-        const body = new Uint8Array([
-            0x00, 0x0b + 2 - 2, // list length (will compute below)
-        ]);
         // Build properly: list_len(2) + entries
         const entries = new Uint8Array([
             h2.length, ...h2, // "h2"
@@ -579,7 +575,6 @@ describe("findExtension", () => {
 
 describe("parseClientHelloWire", () => {
     it("is a byte-compatible alias of parseClientHello", () => {
-        const hello = bareClientHello([0x1301], []);
         // Imported as a value at module top — assert it is the same function.
         // (It is declared `export const parseClientHelloWire = parseClientHello`.)
         expect(typeof (parseClientHello as unknown)).toBe("function");

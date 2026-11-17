@@ -41,7 +41,8 @@ const stubHttp2: BrowserProfile["http2"] = {
     settings: {},
     initialWindowSize: 65535,
     maxFrameSize: 16384,
-    maxHeaderListSize: 262144,
+    headerTableSize: 4096, // RFC 9113 default
+    weight: 256, // Chrome's default stream weight
 };
 const stubBase = {
     tls: stubTls,
@@ -144,7 +145,8 @@ beforeAll(() => {
             settings: { maxConcurrentStreams: 100 },
             initialWindowSize: 6291456,
             maxFrameSize: 16384,
-            maxHeaderListSize: 262144,
+            headerTableSize: 4096, // RFC 9113 default
+            weight: 256, // Chrome's default stream weight
         },
         http1: {
             defaultHeaders: { host: "example.com" },
@@ -168,7 +170,8 @@ beforeAll(() => {
             settings: { maxConcurrentStreams: 100 },
             initialWindowSize: 6291456,
             maxFrameSize: 16384,
-            maxHeaderListSize: 262144,
+            headerTableSize: 4096, // RFC 9113 default
+            weight: 256, // Chrome's default stream weight
         },
         http1: {
             defaultHeaders: { host: "example.com" },

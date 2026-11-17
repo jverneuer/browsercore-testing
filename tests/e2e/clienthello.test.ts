@@ -181,7 +181,7 @@ function encodeExtension(
     expected: ReturnType<typeof buildExpectedClientHello>,
     keyPairs: readonly { algorithm: string; privateKey: Uint8Array; publicKey: Uint8Array }[],
     serverName: string,
-    grease: boolean,
+    _grease: boolean,
 ): Uint8Array {
     switch (type) {
         case 0x0000: {

@@ -20,7 +20,6 @@
 
 import { describe, expect, it } from "vitest";
 import {
-    computeJa4,
     computeJa4Fingerprint,
     parseJa4ClientHello,
     Ja4ParseError,

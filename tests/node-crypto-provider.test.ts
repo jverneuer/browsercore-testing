@@ -13,7 +13,6 @@ import {
     createHash,
     createHmac,
     createSign,
-    createVerify,
     generateKeyPairSync,
     hkdfSync,
     randomBytes,
@@ -113,7 +112,13 @@ describe("nodeCryptoProvider — AEAD AES-128-GCM", () => {
 
     it("fails authentication on tampered ciphertext", () => {
         const ciphertext = crypto.aes128GcmEncrypt(KEY_16, NONCE, PLAINTEXT, AAD);
-        ciphertext[0] ^= 0xff;
+        // noUncheckedIndexedAccess: GCM ciphertext is never empty, but the
+        // tamper target must be proven present rather than assumed.
+        const firstByte = ciphertext[0];
+        if (firstByte === undefined) {
+            throw new Error("GCM ciphertext unexpectedly empty — cannot tamper");
+        }
+        ciphertext[0] = firstByte ^ 0xff;
         expect(() => crypto.aes128GcmDecrypt(KEY_16, NONCE, ciphertext, AAD)).toThrow();
     });
 });

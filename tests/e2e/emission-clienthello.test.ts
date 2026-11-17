@@ -35,8 +35,18 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { connectTls, GREASE_VALUES, isGreaseValue, TLS_1_2, TLS_1_3 } from "@browsercore/tls";
-import type { ClientHelloConfig } from "@browsercore/tls";
+import {
+    CIPHER_GREASE_PLACEHOLDER,
+    CIPHER_SUITE_CODES,
+    NAMED_GROUP_CODES,
+    SIGNATURE_SCHEME_CODES,
+    connectTls,
+    GREASE_VALUES,
+    isGreaseValue,
+    TLS_1_2,
+    TLS_1_3,
+} from "@browsercore/tls";
+import type { CipherSuite, ClientHelloConfig, NamedGroup, SignatureScheme } from "@browsercore/tls";
 import type { CryptoProvider } from "@browsercore/crypto";
 import { DeterministicRandom } from "@browsercore/transport";
 import { getProfile } from "@browsercore/profiles";
@@ -45,6 +55,37 @@ import { parseClientHello } from "../../src/e2e/parse-clienthello.js";
 import type { ParsedClientHello, ParsedExtension } from "../../src/e2e/parse-clienthello.js";
 import { nodeCryptoProvider } from "../../src/reference/node-crypto-provider.js";
 import { CaptureTransport, captureEventProvider } from "./emission-fakes.js";
+
+// --- profile → tls narrowing (fetch's internal adapter, mirrored) -----------
+//
+// profiles types its TLS lists as bare `readonly string[]` (no dependency on
+// @browsercore/tls by design); the tls ClientHelloConfig wants the IANA
+// unions. fetch bridges this with table-membership validation inside its
+// (non-exported) profileToTlsConfig; these helpers mirror that adapter so the
+// emitted ClientHello is built from exactly the validated values production
+// sends. The narrowing cast follows a REAL membership check, so an invalid
+// registry value fails loudly here instead of on the wire.
+
+function asCipherSuite(value: string): CipherSuite {
+    if (value !== CIPHER_GREASE_PLACEHOLDER && !(value in CIPHER_SUITE_CODES)) {
+        throw new Error(`invalid cipher suite in profile: ${value}`);
+    }
+    return value as CipherSuite;
+}
+
+function asNamedGroup(value: string): NamedGroup {
+    if (!(value in NAMED_GROUP_CODES)) {
+        throw new Error(`invalid named group in profile: ${value}`);
+    }
+    return value as NamedGroup;
+}
+
+function asSignatureScheme(value: string): SignatureScheme {
+    if (!(value in SIGNATURE_SCHEME_CODES)) {
+        throw new Error(`invalid signature scheme in profile: ${value}`);
+    }
+    return value as SignatureScheme;
+}
 
 const SERVER_NAME = "tls.peet.ws";
 
@@ -118,23 +159,33 @@ describe("REAL ClientHello emission — chrome-140 vs oracle", () => {
         };
 
         // The chrome-140 ClientHello config exactly as the profile declares it
-        // (profiles 0.2.4) — and as @browsercore/fetch 0.2.18 forwards it into
-        // connectTls: full cipher list including the GREASE placeholder slot,
-        // the keyShareGroups / keyShareAdvertisedGroups split, both advertised
-        // versions (oracle shape GREASE|0304|0303), and the profile's
-        // extension order + record padding.
+        // (profiles 0.2.4) — and as @browsercore/fetch forwards it into
+        // connectTls via its exported profileToTlsConfig (validating each
+        // profile string against the canonical IANA tables and narrowing to
+        // the tls unions): full cipher list including the GREASE placeholder
+        // slot, the keyShareGroups / keyShareAdvertisedGroups split, and the
+        // profile's extension order + record padding.
         const config: ClientHelloConfig = {
-            cipherSuites: profile.tls.cipherSuites,
-            keyShareGroups: profile.tls.keyShareGroups,
-            supportedGroups: profile.tls.keyShareAdvertisedGroups,
-            signatureAlgorithms: profile.tls.signatureAlgorithms,
+            cipherSuites: profile.tls.cipherSuites.map(asCipherSuite),
+            keyShareGroups: profile.tls.keyShareGroups.map(asNamedGroup),
+            ...(profile.tls.keyShareAdvertisedGroups !== undefined
+                ? { supportedGroups: profile.tls.keyShareAdvertisedGroups.map(asNamedGroup) }
+                : {}),
+            signatureAlgorithms: profile.tls.signatureAlgorithms.map(asSignatureScheme),
+            // Both advertised versions (oracle shape GREASE|0304|0303) —
+            // fetch's client-side policy filters to TLS 1.3 only, the one
+            // deliberate deviation here.
             supportedVersions: [TLS_1_3, TLS_1_2],
             extensionOrder: profile.tls.extensionOrder,
             grease: profile.tls.grease,
             serverName: SERVER_NAME,
             alpnProtocols: ["h2", "http/1.1"],
-            ecPointFormats: profile.tls.ecPointFormats,
-            recordPadding: profile.tls.recordPadding,
+            ...(profile.tls.ecPointFormats !== undefined
+                ? { ecPointFormats: profile.tls.ecPointFormats }
+                : {}),
+            ...(profile.tls.recordPadding !== undefined
+                ? { recordPadding: profile.tls.recordPadding }
+                : {}),
         };
 
         connecting = connectTls({
