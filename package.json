@@ -1,7 +1,7 @@
 {
     "name": "@browsercore/testing",
     "version": "0.2.9",
-    "description": "Protocol verification \u2014 RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
+    "description": "Protocol verification — RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
     "repository": {
         "type": "git",
         "url": "https://github.com/jverneuer/browsercore-testing.git"
@@ -51,7 +51,7 @@
         "@types/node": "^26.1.2",
         "@vitest/coverage-v8": "^4.1.10",
         "oxlint": "^1.76.0",
-        "oxlint-tsgolint": "7.0.2005",
+        "oxlint-tsgolint": "^7.0.2007",
         "typescript": "^7.0.0",
         "vitest": "^4.1.10"
     },
