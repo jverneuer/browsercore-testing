@@ -1,6 +1,6 @@
 {
     "name": "@browsercore/testing",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "description": "Protocol verification — RFC compliance tests, browser golden packet captures, integration tests, and benchmarking.",
     "repository": {
         "type": "git",
@@ -40,7 +40,7 @@
         "clean": "rm -rf dist",
         "build": "tsc -p tsconfig.build.json",
         "prepublishOnly": "npm run clean && npm run build",
-        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
         "test": "vitest run",
         "test:traffic": "vitest run tests/e2e/traffic-gate.test.ts",
         "lint": "oxlint --type-aware src/",

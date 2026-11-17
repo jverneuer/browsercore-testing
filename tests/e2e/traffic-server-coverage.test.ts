@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, afterEach } from "vitest";
-import { connect as netConnect, type Socket } from "node:net";
+import { connect as netConnect } from "node:net";
 import { TrafficServer } from "../../src/e2e/traffic-server.js";
 
 const servers: TrafficServer[] = [];

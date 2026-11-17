@@ -28,7 +28,7 @@
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { connectHttp2, FrameType, HpackDecoder, Http2Settings } from "@browsercore/http2";
-import type { HeaderField, Http2Connection, Http2SettingsMap } from "@browsercore/http2";
+import type { HeaderField, Http2Connection, Http2SettingsMap, Http2StreamId } from "@browsercore/http2";
 import { getProfile } from "@browsercore/profiles";
 import type { BrowserProfile, ProfileId } from "@browsercore/profiles";
 import { loadGolden } from "../../src/golden/golden.js";
@@ -83,7 +83,12 @@ function profileSettingsMap(profile: BrowserProfile): Http2SettingsMap {
  * `http2.weight`). `initialPriority` is the @browsercore/http2 0.2.11 option
  * that sets the PRIORITY flag (0x20) + 5-byte block on request HEADERS.
  */
-const CHROME_REQUEST_PRIORITY = { exclusive: true, streamDependency: 0, weight: 0xff } as const;
+const CHROME_REQUEST_PRIORITY = {
+    exclusive: true,
+    // Root-stream dependency 0 — the branded id type (standards §14).
+    streamDependency: 0 as Http2StreamId,
+    weight: 0xff,
+} as const;
 
 // --- helpers ----------------------------------------------------------------
 
@@ -159,12 +164,22 @@ describe("REAL h2 emission — chrome-140 prelude vs oracle", () => {
             events: captureEventProvider(),
             crypto: nodeCryptoProvider,
             // Wired exactly as @browsercore/fetch's establishConnection h2
-            // branch wires it from the profile (dispatch.js, fetch 0.2.18):
+            // branch wires it from the profile (dispatch.js, fetch 0.2.18).
+            // The profile's optional h2 fields arrive as `T | undefined`;
+            // exactOptionalPropertyTypes forbids writing `undefined` into
+            // Http2Options' optional fields, so each is spread only when the
+            // profile carries it.
             initialSettings: profileSettingsMap(profile),
-            settingsOrder: profile.http2.settingsOrder,
-            settingsGrease: profile.http2.grease,
-            connectionWindowUpdate: profile.http2.connectionWindowUpdate,
-            pseudoHeaderOrder: profile.http2.pseudoHeaderOrder,
+            ...(profile.http2.settingsOrder !== undefined
+                ? { settingsOrder: profile.http2.settingsOrder }
+                : {}),
+            ...(profile.http2.grease !== undefined ? { settingsGrease: profile.http2.grease } : {}),
+            ...(profile.http2.connectionWindowUpdate !== undefined
+                ? { connectionWindowUpdate: profile.http2.connectionWindowUpdate }
+                : {}),
+            ...(profile.http2.pseudoHeaderOrder !== undefined
+                ? { pseudoHeaderOrder: profile.http2.pseudoHeaderOrder }
+                : {}),
             // Plus the request-HEADERS priority (oracle flags 0x25 + 5-byte
             // block) carried by the profile's http2.weight (256 → wire 0xff).
             initialPriority: CHROME_REQUEST_PRIORITY,
@@ -186,7 +201,7 @@ describe("REAL h2 emission — chrome-140 prelude vs oracle", () => {
                     ["user-agent", profile.http1.defaultHeaders["user-agent"] ?? ""],
                     ["accept", profile.http1.defaultHeaders["accept"] ?? ""],
                     ["accept-encoding", profile.http1.acceptEncoding],
-                    ["priority", profile.http2.http2DefaultHeaders?.priority ?? ""],
+                    ["priority", profile.http2.http2DefaultHeaders?.["priority"] ?? ""],
                 ]),
                 body: undefined,
             })

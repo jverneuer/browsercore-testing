@@ -15,6 +15,11 @@ import type { EventProvider } from "@browsercore/contracts";
  * serves queued server chunks and otherwise parks until data arrives or the
  * transport closes. Writes after close resolve silently so a peer's best-effort
  * farewell write (e.g. a TLS alert) never masks the bytes under test.
+ *
+ * The canonical `Transport` extends `EventProvider`, so the full 8-method
+ * event surface is implemented by composition over the same in-memory
+ * provider {@link captureEventProvider} builds — one listener store, no
+ * third-party emitter dependency.
  */
 export class CaptureTransport implements Transport {
     readonly id: TransportId = "capture-1" as TransportId;
@@ -25,6 +30,7 @@ export class CaptureTransport implements Transport {
     private readonly serverQueue: Uint8Array[] = [];
     private pendingRead: ((chunk: Uint8Array) => void) | null = null;
     private pendingReject: ((error: Error) => void) | null = null;
+    private readonly events: EventProvider = captureEventProvider();
 
     write(data: Uint8Array): Promise<void> {
         if (this.state.state === "closed") {
@@ -65,6 +71,36 @@ export class CaptureTransport implements Transport {
         } else {
             this.serverQueue.push(chunk);
         }
+    }
+
+    // --- EventProvider surface (delegated to the internal store) -----------
+
+    on(event: string, listener: (...args: unknown[]) => void): void {
+        this.events.on(event, listener);
+    }
+
+    once(event: string, listener: (...args: unknown[]) => void): void {
+        this.events.once(event, listener);
+    }
+
+    off(event: string, listener: (...args: unknown[]) => void): void {
+        this.events.off(event, listener);
+    }
+
+    removeListener(event: string, listener: (...args: unknown[]) => void): void {
+        this.events.removeListener(event, listener);
+    }
+
+    emit(event: string, ...args: unknown[]): boolean {
+        return this.events.emit(event, ...args);
+    }
+
+    listenerCount(event: string): number {
+        return this.events.listenerCount(event);
+    }
+
+    removeAllListeners(event?: string): void {
+        this.events.removeAllListeners(event);
     }
 }
 

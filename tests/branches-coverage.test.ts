@@ -20,7 +20,7 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { runTlsCompliance } from "../src/rfc/rfcTests.js";
 import { registerProfile } from "@browsercore/profiles";
-import type { ProfileId, BrowserProfile } from "../src/types.js";
+import type { ProfileId, BrowserProfile } from "@browsercore/profiles";
 
 const stubTls: BrowserProfile["tls"] = {
     cipherSuites: [],
@@ -34,7 +34,8 @@ const stubHttp2: BrowserProfile["http2"] = {
     settings: {},
     initialWindowSize: 65535,
     maxFrameSize: 16384,
-    maxHeaderListSize: 262144,
+    headerTableSize: 4096, // RFC 9113 default
+    weight: 256, // Chrome's default stream weight
 };
 
 beforeAll(() => {

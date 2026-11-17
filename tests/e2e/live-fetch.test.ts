@@ -24,7 +24,7 @@ import type { EventProvider } from "@browsercore/contracts";
 import type { Transport, TransportState } from "@browsercore/transport";
 import { nodeCryptoProvider as crypto } from "../../src/reference/node-crypto-provider.js";
 
-const RUN_LIVE_TESTS = process.env.RUN_LIVE_TESTS === "1";
+const RUN_LIVE_TESTS = process.env["RUN_LIVE_TESTS"] === "1";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
