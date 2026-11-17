@@ -2,9 +2,7 @@
 
 
 [![npm version](https://img.shields.io/npm/v/@browsercore/testing)](https://www.npmjs.com/package/@browsercore/testing)
-[![coverage](https://img.shields.io/endpoint?url=https://jverneuer.github.io/browsercore-testing/badge.json)](https://jverneuer.github.io/browsercore-testing/COVERAGE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-testing/ci.yml?label=ci)](https://github.com/jverneuer/browsercore-testing/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/@browsercore/testing.svg)](LICENSE)
 
 Protocol verification: RFC compliance tests, browser golden packet captures,
 integration tests, and benchmarking. In short, it compares what our packages put
