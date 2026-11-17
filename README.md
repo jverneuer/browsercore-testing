@@ -6,19 +6,20 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-testing/ci.yml?label=ci)](https://github.com/jverneuer/browsercore-testing/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@browsercore/testing.svg)](LICENSE)
 
-Protocol verification — RFC compliance tests, browser golden packet captures,
-integration tests, and benchmarking. Compares generated packets against
-captures from real browsers.
+Protocol verification: RFC compliance tests, browser golden packet captures,
+integration tests, and benchmarking. In short, it compares what our packages put
+on the wire against what real browsers actually put there. Nothing in this
+package ever runs in production, it just keeps the ones that do honest.
 
 ## Responsibility
 
 Verify that the protocol stacks produce byte-identical output to real browsers
 (RFC compliance) and measure their performance (benchmarking). Depends on every
-other `@browsercore/*` package but is NOT required by them — purely a test/QA tool.
+other `@browsercore/*` package but is NOT required by them. It's purely a test/QA tool.
 
 ## What it does
 
-The full specification is in [`docs/TEST-SUITE.md`](../../docs/TEST-SUITE.md) —
+The full specification lives in [`docs/TEST-SUITE.md`](../../docs/TEST-SUITE.md),
 17 test categories, layered from unit checks up through real-world
 interoperability:
 
@@ -44,13 +45,13 @@ interoperability:
 
 In short:
 
-- **Golden packet testing** — load `.bin` captures recorded from real browsers
+- **Golden packet testing**: load `.bin` captures recorded from real browsers
   (Chrome 140 (tls, http2), Firefox 128 (tls)) and compare our generated TLS
   ClientHellos, HTTP/2 SETTINGS/HEADERS frames, etc. against them. Safari 18,
   Edge 140, and Firefox 135 captures are not yet collected.
-- **RFC compliance** — run focused test suites for TLS 1.3 (RFC 8446), HTTP/2
+- **RFC compliance**: run focused test suites for TLS 1.3 (RFC 8446), HTTP/2
   (RFC 9113), HTTP/1.1 (RFC 9110). These are currently stubs that throw.
-- **Benchmarking** — measure handshake latency and request throughput at
+- **Benchmarking**: measure handshake latency and request throughput at
   p50/p95/p99. These are currently stubs that throw.
 
 ## Public API
@@ -67,11 +68,11 @@ import {
 const result = compareAgainstGolden(myClientHello, "chrome-140:client-hello:1" as never);
 console.log(result.matches);
 
-// Run the TLS RFC compliance suite (stub — throws until implemented):
+// Run the TLS RFC compliance suite (stub, throws until implemented):
 // const tlsResult = runTlsCompliance();
 // console.log(tlsResult.pass);
 
-// Benchmark a TLS handshake over 100 iterations (stub — throws until implemented):
+// Benchmark a TLS handshake over 100 iterations (stub, throws until implemented):
 // const stats = benchmarkTlsHandshake(100);
 // console.log("p99:", stats.p99, "ms");
 
@@ -114,7 +115,7 @@ const akamai = buildAkamaiFingerprint({
                     └─ node:net / node:crypto
 ```
 
-`@browsercore/testing` sits at the very top — it depends on everything and nothing
+`@browsercore/testing` sits at the very top: it depends on everything and nothing
 depends on it.
 
 ## Stack versions
@@ -125,7 +126,7 @@ optional `Platform` / engine-injection surface defined in
 and assembled by [`browsersmith`](https://github.com/jverneuer/browsersmith),
 the composition root. Runtime capabilities (events, TCP, DNS, crypto,
 compression, time) are injected through the `Platform` object rather than
-reached from the protocol layers — so every stack under test stays deterministic
+reached from the protocol layers, so every stack under test stays deterministic
 and fake-friendly. Platform-v2 was a type/wiring/injection change only:
 nothing wire-visible moved, and golden captures plus emission expectations
 carry over unchanged.
@@ -145,7 +146,7 @@ carry over unchanged.
 
 ## Contributing
 
-Contributions are welcome — bug reports, reproductions, docs and code alike. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the full guide lives in the [browsersmith repo](https://github.com/jverneuer/browsersmith/blob/main/CONTRIBUTING.md). First timer? Check the [`good first issue`](https://github.com/jverneuer/browsercore-testing/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label. Security issues: [SECURITY.md](SECURITY.md), never a public issue.
+Contributions are welcome: bug reports, reproductions, docs and code alike. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the full guide lives in the [browsersmith repo](https://github.com/jverneuer/browsersmith/blob/main/CONTRIBUTING.md). First timer? Check the [`good first issue`](https://github.com/jverneuer/browsercore-testing/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label. Security issues: [SECURITY.md](SECURITY.md), never a public issue.
 
 ## License
 
